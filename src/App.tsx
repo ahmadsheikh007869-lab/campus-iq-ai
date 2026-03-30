@@ -12,6 +12,7 @@ import Library from "./pages/Library";
 import Admissions from "./pages/Admissions";
 import Fees from "./pages/Fees";
 import About from "./pages/About";
+import Chat from "./pages/Chat";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
@@ -34,13 +35,20 @@ const App = () => (
               <Route path="/admissions" element={<Admissions />} />
               <Route path="/fees" element={<Fees />} />
               <Route path="/about" element={<About />} />
+              <Route path="/chat" element={<Chat />} />
               <Route path="/admin" element={<AdminLogin />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
-          <Footer />
-          <Chatbot />
+          <Routes>
+            <Route path="/chat" element={null} />
+            <Route path="*" element={<Footer />} />
+          </Routes>
+          <Routes>
+            <Route path="/chat" element={null} />
+            <Route path="*" element={<Chatbot />} />
+          </Routes>
         </div>
       </BrowserRouter>
     </TooltipProvider>

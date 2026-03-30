@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BookOpen, GraduationCap, DollarSign, School, MessageCircle, Users, BookMarked, Trophy } from "lucide-react";
+import { BookOpen, GraduationCap, DollarSign, School, MessageSquare, Users, BookMarked, Trophy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -9,14 +9,14 @@ const cards = [
   { icon: BookOpen, title: "Library", desc: "Resources & digital access", path: "/library", color: "bg-accent/10 text-accent" },
   { icon: GraduationCap, title: "Admissions", desc: "Apply now & eligibility", path: "/admissions", color: "bg-primary/10 text-primary" },
   { icon: DollarSign, title: "Fees", desc: "Course-wise fee details", path: "/fees", color: "bg-accent/10 text-accent" },
-  { icon: MessageCircle, title: "AI Chatbot", desc: "Ask me anything!", path: "#chatbot", color: "bg-primary/10 text-primary" },
+  { icon: MessageSquare, title: "AI Assistant", desc: "Ask me anything!", path: "/chat", color: "bg-primary/10 text-primary" },
 ];
 
 const stats = [
   { icon: Users, value: "15,000+", label: "Students" },
   { icon: BookMarked, value: "100+", label: "Programs" },
   { icon: Trophy, value: "20+", label: "Years of Excellence" },
-  { icon: GraduationCap, value: "50,000+", label: "Alumni" },
+  { icon: GraduationCap, value: "41,000+", label: "Alumni" },
 ];
 
 const fadeUp = {
@@ -28,16 +28,21 @@ export default function Index() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/5 py-20 lg:py-32">
-        <div className="mx-auto max-w-7xl px-4">
+      <section className="relative overflow-hidden py-20 lg:py-32">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/campus-overview.jpeg')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-background/40" />
+        <div className="relative mx-auto max-w-7xl px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="max-w-3xl"
           >
-            <span className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
-              Est. 2004 — Lucknow, UP
+            <span className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6 backdrop-blur-sm">
+              NAAC A+ Accredited — Lucknow, UP
             </span>
             <h1 className="text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
               Integral University
@@ -52,12 +57,15 @@ export default function Index() {
               <Button asChild variant="outline" size="lg">
                 <Link to="/university">Explore Campus</Link>
               </Button>
+              <Button asChild variant="secondary" size="lg">
+                <Link to="/chat">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Ask AI Assistant
+                </Link>
+              </Button>
             </div>
           </motion.div>
         </div>
-        {/* Decorative circles */}
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-accent/5 blur-3xl" />
       </section>
 
       {/* Quick Nav Cards */}
@@ -117,6 +125,24 @@ export default function Index() {
                 <span className="text-sm text-muted-foreground">{stat.label}</span>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Campus Images */}
+      <section className="py-16">
+        <div className="mx-auto max-w-7xl px-4">
+          <h2 className="text-3xl font-bold text-center mb-10">Our Campus</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="overflow-hidden rounded-2xl">
+              <img src="/images/campus-overview.jpeg" alt="Integral University Campus Aerial View" className="h-64 w-full object-cover hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div className="overflow-hidden rounded-2xl">
+              <img src="/images/campus-academic.webp" alt="Integral University Academic Block" className="h-64 w-full object-cover hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div className="overflow-hidden rounded-2xl">
+              <img src="/images/library.jpeg" alt="Integral University Central Library" className="h-64 w-full object-cover hover:scale-105 transition-transform duration-500" />
+            </div>
           </div>
         </div>
       </section>
