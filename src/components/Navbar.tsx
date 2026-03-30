@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, MoreVertical, Moon, Sun, Bell, Info } from "lucide-react";
+import { Menu, X, MoreVertical, Moon, Sun, Bell, Info, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ const navItems = [
   { label: "Library", path: "/library" },
   { label: "Admissions", path: "/admissions" },
   { label: "Fees", path: "/fees" },
+  { label: "AI Chat", path: "/chat", icon: MessageSquare },
 ];
 
 export default function Navbar() {
@@ -46,19 +47,19 @@ export default function Navbar() {
             <Link
               key={item.path}
               to={item.path}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary ${
                 location.pathname === item.path
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground"
               }`}
             >
+              {item.icon && <item.icon className="h-4 w-4" />}
               {item.label}
             </Link>
           ))}
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Settings dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -92,7 +93,6 @@ export default function Navbar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Mobile hamburger */}
           <Button
             variant="ghost"
             size="icon"
@@ -104,7 +104,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile nav */}
       {mobileOpen && (
         <div className="border-t bg-background px-4 pb-4 md:hidden">
           {navItems.map((item) => (
@@ -112,12 +111,13 @@ export default function Navbar() {
               key={item.path}
               to={item.path}
               onClick={() => setMobileOpen(false)}
-              className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 location.pathname === item.path
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary"
               }`}
             >
+              {item.icon && <item.icon className="h-4 w-4" />}
               {item.label}
             </Link>
           ))}
