@@ -45,10 +45,8 @@ const App = () => (
             <Route path="/chat" element={null} />
             <Route path="*" element={<Footer />} />
           </Routes>
-          <Routes>
-            <Route path="/chat" element={null} />
-            <Route path="*" element={<Chatbot />} />
-          </Routes>
+
+
         </div>
       </BrowserRouter>
     </TooltipProvider>
