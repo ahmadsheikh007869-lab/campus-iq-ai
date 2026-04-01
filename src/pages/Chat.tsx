@@ -214,6 +214,20 @@ export default function Chat() {
           role: "assistant",
           content: assistantSoFar,
         });
+        // Enforce 3-message limit after assistant reply
+        try {
+          const { data: allMsgs } = await supabase
+            .from("chat_messages")
+            .select("id, created_at")
+            .eq("session_id", sessionId)
+            .order("created_at", { ascending: true });
+          if (allMsgs && allMsgs.length > 3) {
+            const toDelete = allMsgs.slice(0, allMsgs.length - 3).map((m) => m.id);
+            await supabase.from("chat_messages").delete().in("id", toDelete);
+          }
+        } catch (e) {
+          console.error("Message cleanup error:", e);
+        }
       }
     } catch {
       setMessages([...newMessages, { role: "assistant", content: "Something went wrong. Please try again." }]);
