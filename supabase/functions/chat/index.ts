@@ -31,7 +31,6 @@ Key facts:
 - Admissions: admission.iul.ac.in
 - Contact: +91 93351 77775, info@iul.ac.in`;
 
-// Extract meaningful search terms from query
 function extractSearchTerms(query: string): string[] {
   const stopWords = new Set([
     "what", "which", "where", "when", "how", "does", "about", "tell",
@@ -50,7 +49,6 @@ function extractSearchTerms(query: string): string[] {
     .slice(0, 12);
 }
 
-// Build OR filter for ilike matching across given columns
 function buildOrFilter(terms: string[], columns: string[]): string {
   const parts: string[] = [];
   for (const t of terms) {
@@ -61,13 +59,11 @@ function buildOrFilter(terms: string[], columns: string[]): string {
   return parts.join(",");
 }
 
-// Fetch all relevant context from the database
 async function fetchContext(supabase: any, terms: string[]): Promise<string> {
   if (terms.length === 0) return "";
 
   const sections: string[] = [];
 
-  // 1. Documents (PDF knowledge base) — primary source
   try {
     const { data: docs } = await supabase
       .from("documents")
@@ -85,7 +81,6 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
     console.error("Documents search error:", e);
   }
 
-  // 2. Courses — structured data
   try {
     const { data: courses } = await supabase
       .from("courses")
@@ -108,7 +103,6 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
     console.error("Courses search error:", e);
   }
 
-  // 3. FAQs
   try {
     const { data: faqs } = await supabase
       .from("faqs")
@@ -126,7 +120,6 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
     console.error("FAQs search error:", e);
   }
 
-  // 4. University Info sections
   try {
     const { data: info } = await supabase
       .from("university_info")
@@ -153,14 +146,12 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
-    // Get last user message for context search
     const lastUserMsg =
       [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
 
-    // Search all data sources for relevant context
     let documentContext = "";
     try {
       const supabase = createClient(
@@ -179,44 +170,29 @@ serve(async (req) => {
         documentContext
       : SYSTEM_PROMPT;
 
-    // Build Gemini conversation
-    const geminiMessages = [
-      { role: "user", parts: [{ text: systemWithContext }] },
-      {
-        role: "model",
-        parts: [
-          {
-            text: "Understood. I am the Integral University AI assistant. I will answer questions using the provided context and my knowledge about the university.",
-          },
-        ],
-      },
+    const openaiMessages = [
+      { role: "system", content: systemWithContext },
+      ...messages,
     ];
 
-    for (const msg of messages) {
-      geminiMessages.push({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: msg.content }],
-      });
-    }
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: geminiMessages,
-          generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 4096,
-          },
-        }),
-      }
-    );
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: openaiMessages,
+        stream: true,
+        temperature: 0.6,
+        max_tokens: 4096,
+      }),
+    });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Gemini API error:", response.status, errText);
+      console.error("OpenAI API error:", response.status, errText);
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }),
@@ -229,56 +205,8 @@ serve(async (req) => {
       );
     }
 
-    // Transform Gemini SSE → OpenAI-compatible SSE
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream({
-      async start(controller) {
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            let idx;
-            while ((idx = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, idx);
-              buffer = buffer.slice(idx + 1);
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (!line.startsWith("data: ") || line.trim() === "") continue;
-
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const text =
-                  parsed?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                if (text) {
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`
-                    )
-                  );
-                }
-              } catch {
-                // skip malformed chunks
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Stream error:", e);
-        }
-
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      },
-    });
-
-    return new Response(readable, {
+    // OpenAI already returns OpenAI-compatible SSE, so pass through directly
+    return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
