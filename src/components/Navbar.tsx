@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import iuLogo from "@/assets/iu-logo.png";
 
 const navItems = [
   { label: "Home", path: "/" },
@@ -35,9 +36,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            IU
-          </div>
+          <img src={iuLogo} alt="Integral University Logo" className="h-9 w-9 rounded-lg object-contain" />
           <span className="hidden font-bold text-lg sm:block">Integral University</span>
         </Link>
 
