@@ -418,71 +418,78 @@ export default function Chat() {
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
-                {sessions.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
-                      activeSession === s.id ? "bg-primary/10 text-primary" : "hover:bg-secondary text-muted-foreground"
-                    }`}
-                    onClick={() => editingId !== s.id && selectSession(s.id)}
-                  >
-                    <MessageSquare className="h-4 w-4 shrink-0" />
-                    {editingId === s.id ? (
-                      <div className="flex items-center gap-1 flex-1 min-w-0">
-                        <Input
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && renameSession(s.id)}
-                          className="h-6 text-xs"
-                          autoFocus
-                        />
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => renameSession(s.id)}>
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingId(null)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate">{s.title}</p>
-                          <p className="text-xs text-muted-foreground/60">{formatTime(s.created_at)}</p>
-                        </div>
-                        <div className="hidden group-hover:flex gap-0.5">
-                          <Button
-                            variant="ghost" size="icon" className="h-6 w-6"
-                            onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title); }}
-                          >
-                            <Pencil className="h-3 w-3" />
+                {sessions.map((s) => {
+                  const showActions = tappedSession === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-all duration-200 active:scale-[0.98] ${
+                        activeSession === s.id ? "bg-primary/10 text-primary" : "hover:bg-secondary text-muted-foreground"
+                      }`}
+                      onClick={() => {
+                        if (editingId === s.id) return;
+                        setTappedSession(showActions ? null : s.id);
+                        selectSession(s.id);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      {editingId === s.id ? (
+                        <div className="flex items-center gap-1 flex-1 min-w-0">
+                          <Input
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && renameSession(s.id)}
+                            className="h-6 text-xs"
+                            autoFocus
+                          />
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => renameSession(s.id)}>
+                            <Check className="h-3 w-3" />
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost" size="icon" className="h-6 w-6"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Chat</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{s.title}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteSession(s.id)}>Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingId(null)}>
+                            <X className="h-3 w-3" />
+                          </Button>
                         </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate">{s.title}</p>
+                            <p className="text-xs text-muted-foreground/60">{formatTime(s.created_at)}</p>
+                          </div>
+                          <div className={`flex gap-0.5 transition-all duration-200 ${showActions ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}`}>
+                            <Button
+                              variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title); }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10 transition-colors"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Chat</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete "{s.title}"? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteSession(s.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
                 {sessions.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">No chats yet</p>
                 )}
