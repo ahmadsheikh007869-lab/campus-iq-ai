@@ -35,6 +35,7 @@ export default function Chat() {
   const [editTitle, setEditTitle] = useState("");
   const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
   const [editMsgContent, setEditMsgContent] = useState("");
+  const [tappedSession, setTappedSession] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
