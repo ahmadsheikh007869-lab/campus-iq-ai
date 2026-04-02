@@ -1,11 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, Eraser, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string };
@@ -22,6 +33,8 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
+  const [editMsgContent, setEditMsgContent] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +87,7 @@ export default function Chat() {
   };
 
   const deleteSession = async (id: string) => {
+    await supabase.from("chat_messages").delete().eq("session_id", id);
     await supabase.from("chat_sessions").delete().eq("id", id);
     if (activeSession === id) {
       setActiveSession(null);
@@ -82,11 +96,116 @@ export default function Chat() {
     await loadSessions();
   };
 
+  const clearChat = async () => {
+    if (!activeSession) return;
+    await supabase.from("chat_messages").delete().eq("session_id", activeSession);
+    setMessages([]);
+  };
+
   const renameSession = async (id: string) => {
     if (!editTitle.trim()) return;
     await supabase.from("chat_sessions").update({ title: editTitle.trim() }).eq("id", id);
     setEditingId(null);
     await loadSessions();
+  };
+
+  const editMessage = async (msgIdx: number) => {
+    if (!editMsgContent.trim() || !activeSession || loading) return;
+    
+    // Keep messages up to the edited one (replace it), remove everything after
+    const updatedMessages = messages.slice(0, msgIdx);
+    const editedMsg: Message = { role: "user", content: editMsgContent.trim() };
+    updatedMessages.push(editedMsg);
+    
+    setMessages(updatedMessages);
+    setEditingMsgIdx(null);
+    setEditMsgContent("");
+    setLoading(true);
+
+    // Delete all messages for this session and re-insert the kept ones
+    await supabase.from("chat_messages").delete().eq("session_id", activeSession);
+    for (const msg of updatedMessages) {
+      await supabase.from("chat_messages").insert({
+        session_id: activeSession,
+        role: msg.role,
+        content: msg.content,
+      });
+    }
+
+    // Now get AI response for the edited message
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: updatedMessages }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        const errMsg = resp.status === 429
+          ? "Too many requests. Please wait a moment."
+          : "Could not connect to AI. Please try again.";
+        const finalMsgs = [...updatedMessages, { role: "assistant" as const, content: errMsg }];
+        setMessages(finalMsgs);
+        await supabase.from("chat_messages").insert({ session_id: activeSession, role: "assistant", content: errMsg });
+        setLoading(false);
+        return;
+      }
+
+      let assistantSoFar = "";
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      const upsert = (chunk: string) => {
+        assistantSoFar += chunk;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && prev.length > updatedMessages.length) {
+            return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+          }
+          return [...prev, { role: "assistant", content: assistantSoFar }];
+        });
+      };
+
+      let streamDone = false;
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) upsert(content);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      if (assistantSoFar) {
+        await supabase.from("chat_messages").insert({
+          session_id: activeSession,
+          role: "assistant",
+          content: assistantSoFar,
+        });
+      }
+    } catch {
+      setMessages([...updatedMessages, { role: "assistant", content: "Something went wrong. Please try again." }]);
+    }
+    setLoading(false);
   };
 
   const sendMessage = useCallback(async (text: string) => {
@@ -111,14 +230,12 @@ export default function Chat() {
     setInput("");
     setLoading(true);
 
-    // Save user message
     await supabase.from("chat_messages").insert({
       session_id: sessionId,
       role: "user",
       content: text.trim(),
     });
 
-    // Auto-title on first message
     if (messages.length === 0) {
       await supabase
         .from("chat_sessions")
@@ -127,7 +244,7 @@ export default function Chat() {
       loadSessions();
     }
 
-    // Enforce 3-message limit: delete oldest messages beyond 3
+    // Enforce 3-message limit
     try {
       const { data: allMsgs } = await supabase
         .from("chat_messages")
@@ -207,14 +324,12 @@ export default function Chat() {
         }
       }
 
-      // Save assistant message
       if (assistantSoFar) {
         await supabase.from("chat_messages").insert({
           session_id: sessionId,
           role: "assistant",
           content: assistantSoFar,
         });
-        // Enforce 3-message limit after assistant reply
         try {
           const { data: allMsgs } = await supabase
             .from("chat_messages")
@@ -319,12 +434,28 @@ export default function Chat() {
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          <Button
-                            variant="ghost" size="icon" className="h-6 w-6"
-                            onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost" size="icon" className="h-6 w-6"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Chat</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{s.title}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteSession(s.id)}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </>
                     )}
@@ -353,11 +484,34 @@ export default function Chat() {
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
             </h1>
           </div>
-          {activeSession && (
-            <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
-              <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
-            </Button>
-          )}
+          <div className="flex gap-1">
+            {activeSession && messages.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    <Eraser className="h-3.5 w-3.5 mr-1" /> Clear Chat
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear Chat</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to clear all messages in this conversation? This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearChat}>Clear</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {activeSession && (
+              <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
+                <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Messages */}
@@ -398,19 +552,49 @@ export default function Chat() {
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
-                        msg.role === "user"
-                          ? "rounded-br-md bg-primary text-primary-foreground"
-                          : "rounded-bl-md bg-secondary text-secondary-foreground"
-                      }`}
-                    >
-                      {msg.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <div className="group relative max-w-[80%]">
+                      {editingMsgIdx === i && msg.role === "user" ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editMsgContent}
+                            onChange={(e) => setEditMsgContent(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && editMessage(i)}
+                            className="flex-1 text-sm"
+                            autoFocus
+                          />
+                          <Button size="icon" className="h-8 w-8" onClick={() => editMessage(i)}>
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMsgIdx(null)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       ) : (
-                        msg.content
+                        <>
+                          <div
+                            className={`rounded-2xl px-4 py-3 text-sm ${
+                              msg.role === "user"
+                                ? "rounded-br-md bg-primary text-primary-foreground"
+                                : "rounded-bl-md bg-secondary text-secondary-foreground"
+                            }`}
+                          >
+                            {msg.role === "assistant" ? (
+                              <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              msg.content
+                            )}
+                          </div>
+                          {msg.role === "user" && !loading && (
+                            <button
+                              onClick={() => { setEditingMsgIdx(i); setEditMsgContent(msg.content); }}
+                              className="absolute -bottom-5 right-0 hidden group-hover:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <PenLine className="h-3 w-3" /> Edit
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </motion.div>

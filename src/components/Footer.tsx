@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import iuLogo from "@/assets/iu-logo.png";
 
 export default function Footer() {
   return (
@@ -7,7 +8,7 @@ export default function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">IU</div>
+              <img src={iuLogo} alt="Integral University Logo" className="h-8 w-8 rounded-lg object-contain" />
               <span className="font-bold">Integral University</span>
             </div>
             <p className="text-sm text-muted-foreground">
