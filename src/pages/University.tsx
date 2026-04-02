@@ -21,6 +21,8 @@ const milestones = [
   { year: "2018", event: "Ranked among top universities in UP" },
   { year: "2022", event: "International collaborations with 20+ universities" },
   { year: "2024", event: "20 Years of Academic Excellence" },
+  { year: "2025", event: "Expansion of academic programs, upgraded campus infrastructure, and AI-based digital learning systems introduced" },
+  { year: "2026", event: "Recognized as a leading institution in innovation, smart campus development, and advanced research collaborations" },
 ];
 
 const fadeUp = {
