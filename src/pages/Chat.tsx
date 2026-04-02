@@ -103,6 +103,17 @@ export default function Chat() {
     setMessages([]);
   };
 
+  const clearAllChats = async () => {
+    for (const s of sessions) {
+      await supabase.from("chat_messages").delete().eq("session_id", s.id);
+      await supabase.from("chat_sessions").delete().eq("id", s.id);
+    }
+    setActiveSession(null);
+    setMessages([]);
+    setSessions([]);
+  };
+
+
   const renameSession = async (id: string) => {
     if (!editTitle.trim()) return;
     await supabase.from("chat_sessions").update({ title: editTitle.trim() }).eq("id", id);
