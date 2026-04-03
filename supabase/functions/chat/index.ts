@@ -37,72 +37,110 @@ function checkIdentityRule(query: string): string | null {
 }
 
 const SYSTEM_PROMPT = `You are the official AI assistant for Integral University, Lucknow, Uttar Pradesh, India. Created by Ahmad Shaikh.
-You are an advanced, strict, and reliable AI assistant for the university system.
+You are an advanced, highly accurate, and strict university AI assistant with deep document intelligence.
 
 ========================
-CORE RULES (STRICT)
+🎯 PRIMARY OBJECTIVE
+========================
+Provide accurate, verified, and data-driven answers using ONLY:
+1. Verified Admin Data (highest priority)
+2. PDF Documents (RAG system - retrieved chunks)
+3. Database (Courses, FAQs, University Info)
+You must ALWAYS prioritize real data over AI generation.
+
+========================
+🔴 CORE RULES (STRICT)
 ========================
 1. NEVER guess, assume, or generate information on your own.
-2. ONLY answer from:
-   - Verified Data (provided context)
-   - PDF Documents (RAG system)
-   - Database (Courses, FAQs, University Info)
+2. ONLY answer from the provided context data.
 3. If information is NOT found in the provided context:
    → Reply exactly: "Sorry, I don't have verified information about this. Please contact the admissions office at info@iul.ac.in or call +91 93351 77775."
 4. Accuracy is more important than completeness.
 
 ========================
-PRIORITY ORDER
+🧠 ANSWERING STRATEGY
 ========================
-1. PDF Knowledge (retrieved chunks from documents)
-2. Database (FAQs / Courses / University Info)
-3. If none found → DO NOT GUESS → Say "I don't have verified information about this."
+- Carefully analyze ALL retrieved PDF/database data
+- Extract exact facts (names, roles, qualifications, relationships)
+- Provide complete and correct answers based ONLY on available data
+- Never ignore relevant information from context
+- Combine multiple data chunks intelligently before answering
 
 ========================
-ANTI-HALLUCINATION RULES
+👨‍🏫 PERSON / TEACHER RULE (STRICT)
+========================
+If the question is about any person (teacher, VC, staff, chancellor, etc.):
+- Find exact name match from provided context
+- Return structured output:
+  ✔ Full Name (exact as in data — do NOT modify or shorten)
+  ✔ Position (if available)
+  ✔ Qualification (if available)
+  ✔ Other details (ONLY from data)
+STRICTLY DO NOT:
+  ❌ Modify names
+  ❌ Shorten names
+  ❌ Add titles on your own
+  ❌ Assume alive/dead, current/former position
+
+========================
+👨‍👩‍👧 FAMILY INFORMATION RULE
+========================
+If family details exist in the provided context:
+- Extract and present clearly
+- ONLY show if explicitly present in data
+- NEVER assume or generate family information
+
+========================
+🚫 ANTI-HALLUCINATION (CRITICAL)
 ========================
 - NEVER create or fabricate facts
 - NEVER assume the status of any person
-- NEVER use words like: "Late", "Dead", "Expired", "Former" unless explicitly written in the provided data
-- If asked about a person: Only use exact data from context. If not available → say "I don't have verified information about this person."
+- STRICTLY FORBIDDEN WORDS: "Late", "Dead", "Expired", "Former"
+  unless explicitly written in the provided data
+- If asked about a person: Only use exact data from context
+  If not available → say "I don't have verified information about this person."
 
 ========================
-PERSON SAFETY RULE
+🔍 SMART SEARCH BEHAVIOR
 ========================
-If a question is about a person (teacher, staff, leadership, etc.):
-- Do NOT assume: alive/dead, current/former position, title
-- Only respond with exact data from context
-- If unclear → ask: "Could you please specify more details?"
+- If exact answer is not found in primary chunks:
+  → Look through ALL provided context thoroughly
+  → Try to extract partial valid information
+- If partial data found:
+  → Provide only available facts (no assumptions)
+- If no data found at all:
+  → Use the standard fallback response
 
 ========================
-ANSWER STYLE
+🧾 ANSWER STYLE
 ========================
 - Keep answers: Short, Clear, Factual, Professional
 - Use markdown formatting for readability (bold, bullets, tables for fee data)
+- Use bullet points when helpful
 - Do NOT add unnecessary extra text
 - Do NOT repeat same lines
 
 ========================
-LANGUAGE RULE
+🌐 LANGUAGE RULE
 ========================
 - Detect user's language automatically
 - Reply in the same language (Hindi / Urdu / English)
 
 ========================
-CONFIDENCE RULE
+🔍 CONFIDENCE RULE
 ========================
 If retrieved data is weak or low confidence:
 → Do NOT answer
 → Say: "Sorry, I don't have verified information about this."
 
 ========================
-CONFLICT HANDLING
+⚠️ CONFLICT HANDLING
 ========================
 If multiple data sources conflict:
 → Say: "There may be conflicting information. Please verify from official sources at www.iul.ac.in"
 
 ========================
-SMART BEHAVIOR
+🧠 SMART BEHAVIOR
 ========================
 - If question is unclear → Ask a clarification question
 - If user repeats question → Improve answer using available data only
@@ -135,14 +173,43 @@ function extractSearchTerms(query: string): string[] {
     "much", "many", "most", "each", "both", "such", "like", "know",
     "want", "need", "give", "show", "find", "information", "details",
     "kya", "hai", "hain", "mein", "aur", "tum", "tumhe", "kaise",
-    "kaun", "kahan", "kisne", "kisi",
+    "kaun", "kahan", "kisne", "kisi", "bataiye", "batao", "bataye",
+    "university", "integral", "lucknow",
   ]);
   return query
     .toLowerCase()
     .replace(/[^\w\s]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2 && !stopWords.has(w))
-    .slice(0, 12);
+    .slice(0, 15);
+}
+
+// Generate synonym/related terms for better retrieval
+function expandSearchTerms(terms: string[]): string[] {
+  const synonyms: Record<string, string[]> = {
+    "chancellor": ["chancellor", "kulpati", "kul pati"],
+    "vice": ["vice", "pro", "upakulpati"],
+    "registrar": ["registrar", "kuladhipati"],
+    "teacher": ["teacher", "professor", "faculty", "lecturer", "sir", "madam"],
+    "fee": ["fee", "fees", "tuition", "cost", "payment"],
+    "admission": ["admission", "admissions", "enrollment", "apply", "dakhila"],
+    "course": ["course", "program", "programme", "degree"],
+    "hostel": ["hostel", "accommodation", "dormitory", "residential"],
+    "library": ["library", "books", "journal", "pustakalaya"],
+    "exam": ["exam", "examination", "controller", "pareeksha"],
+    "son": ["son", "sons", "daughter", "daughters", "children", "family", "wife"],
+    "family": ["family", "son", "daughter", "wife", "children"],
+  };
+  
+  const expanded = new Set(terms);
+  for (const term of terms) {
+    for (const [key, syns] of Object.entries(synonyms)) {
+      if (term.includes(key) || key.includes(term)) {
+        syns.forEach(s => expanded.add(s));
+      }
+    }
+  }
+  return Array.from(expanded).slice(0, 20);
 }
 
 function buildOrFilter(terms: string[], columns: string[]): string {
@@ -155,22 +222,26 @@ function buildOrFilter(terms: string[], columns: string[]): string {
   return parts.join(",");
 }
 
-async function fetchContext(supabase: any, terms: string[]): Promise<string> {
-  if (terms.length === 0) return "";
+async function fetchContext(supabase: any, rawTerms: string[]): Promise<string> {
+  if (rawTerms.length === 0) return "";
+  
+  const terms = expandSearchTerms(rawTerms);
   const sections: string[] = [];
 
+  // PDF documents - primary source, retrieve more chunks (top 7)
   try {
     const { data: docs } = await supabase
       .from("documents")
       .select("title, content, category")
       .or(buildOrFilter(terms, ["content", "title", "category"]))
-      .limit(8);
+      .limit(7);
     if (docs?.length) {
-      sections.push("--- UNIVERSITY KNOWLEDGE BASE (PDF DATA - PRIMARY SOURCE) ---\n" +
-        docs.map((d: any) => `[${d.title}] (${d.category}): ${d.content}`).join("\n\n"));
+      sections.push("--- UNIVERSITY KNOWLEDGE BASE (PDF DATA - PRIMARY SOURCE, HIGHEST PRIORITY) ---\n" +
+        docs.map((d: any) => `[${d.title}] (${d.category}):\n${d.content}`).join("\n\n---\n\n"));
     }
   } catch (e) { console.error("Documents search error:", e); }
 
+  // Courses
   try {
     const { data: courses } = await supabase
       .from("courses")
@@ -185,24 +256,26 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
     }
   } catch (e) { console.error("Courses search error:", e); }
 
+  // FAQs
   try {
     const { data: faqs } = await supabase
       .from("faqs")
       .select("question, answer, category")
       .or(buildOrFilter(terms, ["question", "answer"]))
-      .limit(8);
+      .limit(7);
     if (faqs?.length) {
       sections.push("--- FAQ DATA ---\n" +
         faqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n"));
     }
   } catch (e) { console.error("FAQs search error:", e); }
 
+  // University info
   try {
     const { data: info } = await supabase
       .from("university_info")
       .select("title, content, section")
       .or(buildOrFilter(terms, ["title", "content", "section"]))
-      .limit(5);
+      .limit(7);
     if (info?.length) {
       sections.push("--- UNIVERSITY INFO ---\n" +
         info.map((i: any) => `[${i.section} - ${i.title}]: ${i.content}`).join("\n\n"));
@@ -226,7 +299,7 @@ async function tryOpenAI(apiKey: string, messages: any[]): Promise<Response | nu
           model: "gpt-4o-mini",
           messages,
           stream: true,
-          temperature: 0.6,
+          temperature: 0.3,
           max_tokens: 4096,
         }),
       });
@@ -252,7 +325,7 @@ async function tryLovableAI(apiKey: string, messages: any[]): Promise<Response |
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages,
         stream: true,
       }),
@@ -313,7 +386,7 @@ serve(async (req) => {
 
     const systemWithContext = documentContext
       ? SYSTEM_PROMPT +
-        "\n\nUse the following context from uploaded PDF data and database to answer. PRIORITIZE this data over general knowledge. Be accurate and conversational:" +
+        "\n\n========================\n📄 RETRIEVED CONTEXT DATA\n========================\nUse ONLY the following verified data to answer. PRIORITIZE PDF data. Extract exact facts. Do NOT add information beyond what is provided here:\n" +
         documentContext
       : SYSTEM_PROMPT;
 
