@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, Eraser, PenLine, Trash } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -97,11 +97,6 @@ export default function Chat() {
     await loadSessions();
   };
 
-  const clearChat = async () => {
-    if (!activeSession) return;
-    await supabase.from("chat_messages").delete().eq("session_id", activeSession);
-    setMessages([]);
-  };
 
   const clearAllChats = async () => {
     for (const s of sessions) {
@@ -401,15 +396,15 @@ export default function Chat() {
                 {sessions.length > 0 && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear All Chats">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear History">
                         <Trash className="h-4 w-4 text-destructive" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Clear All Chats</AlertDialogTitle>
+                        <AlertDialogTitle>Clear History</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to delete all {sessions.length} chat(s)? This action cannot be undone.
+                          Delete all {sessions.length} chat(s)? This action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -524,34 +519,11 @@ export default function Chat() {
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
             </h1>
           </div>
-          <div className="flex gap-1">
-            {activeSession && messages.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-xs">
-                    <Eraser className="h-3.5 w-3.5 mr-1" /> Clear Chat
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Clear Chat</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to clear all messages in this conversation? This cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={clearChat}>Clear</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            {activeSession && (
-              <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
-                <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
-              </Button>
-            )}
-          </div>
+          {activeSession && (
+            <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
+              <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
+            </Button>
+          )}
         </div>
 
         {/* Messages */}
