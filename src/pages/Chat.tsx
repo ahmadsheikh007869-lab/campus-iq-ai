@@ -97,11 +97,6 @@ export default function Chat() {
     await loadSessions();
   };
 
-  const clearChat = async () => {
-    if (!activeSession) return;
-    await supabase.from("chat_messages").delete().eq("session_id", activeSession);
-    setMessages([]);
-  };
 
   const clearAllChats = async () => {
     for (const s of sessions) {
