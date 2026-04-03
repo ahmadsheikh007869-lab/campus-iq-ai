@@ -401,7 +401,7 @@ export default function Chat() {
                 {sessions.length > 0 && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear All Chats">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear History">
                         <Trash className="h-4 w-4 text-destructive" />
                       </Button>
                     </AlertDialogTrigger>
