@@ -407,9 +407,9 @@ export default function Chat() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Clear All Chats</AlertDialogTitle>
+                        <AlertDialogTitle>Clear History</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to delete all {sessions.length} chat(s)? This action cannot be undone.
+                          Delete all {sessions.length} chat(s)? This action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
