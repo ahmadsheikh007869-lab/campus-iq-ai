@@ -524,34 +524,11 @@ export default function Chat() {
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
             </h1>
           </div>
-          <div className="flex gap-1">
-            {activeSession && messages.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-xs">
-                    <Eraser className="h-3.5 w-3.5 mr-1" /> Clear Chat
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Clear Chat</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to clear all messages in this conversation? This cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={clearChat}>Clear</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            {activeSession && (
-              <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
-                <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
-              </Button>
-            )}
-          </div>
+          {activeSession && (
+            <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
+              <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
+            </Button>
+          )}
         </div>
 
         {/* Messages */}
