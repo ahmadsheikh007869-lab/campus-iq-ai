@@ -418,35 +418,69 @@ export default function Chat() {
             className="flex flex-col border-r bg-secondary/30 overflow-hidden"
           >
             <div className="flex items-center justify-between p-3 border-b">
-              <h2 className="font-semibold text-sm">Chat History</h2>
+              <h2 className="font-semibold text-sm">{selectMode ? `${selectedSessions.size} selected` : "Chat History"}</h2>
               <div className="flex gap-1">
-                {sessions.length > 0 && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear History">
-                        <Trash className="h-4 w-4 text-destructive" />
+                {selectMode ? (
+                  <>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Delete Selected" disabled={selectedSessions.size === 0}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Selected</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Delete {selectedSessions.size} selected chat(s)? This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={deleteSelectedSessions}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectMode(false); setSelectedSessions(new Set()); }} title="Cancel">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {sessions.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectMode(true)} title="Select">
+                        <CheckSquare className="h-4 w-4" />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Clear History</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Delete all {sessions.length} chat(s)? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={clearAllChats}>Delete All</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    )}
+                    {sessions.length > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear History">
+                            <Trash className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Clear History</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Delete all {sessions.length} chat(s)? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={clearAllChats}>Delete All</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={createNewChat} title="New Chat">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
+                      <PanelLeftClose className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={createNewChat} title="New Chat">
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
-                  <PanelLeftClose className="h-4 w-4" />
-                </Button>
               </div>
             </div>
             <ScrollArea className="flex-1">
