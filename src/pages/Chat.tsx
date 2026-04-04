@@ -494,12 +494,26 @@ export default function Chat() {
                         activeSession === s.id ? "bg-primary/10 text-primary" : "hover:bg-secondary text-muted-foreground"
                       }`}
                       onClick={() => {
+                        if (selectMode) {
+                          toggleSessionSelection(s.id);
+                          return;
+                        }
                         if (editingId === s.id) return;
                         setTappedSession(showActions ? null : s.id);
                         selectSession(s.id);
                       }}
                     >
-                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      {selectMode ? (
+                        <button onClick={(e) => { e.stopPropagation(); toggleSessionSelection(s.id); }} className="shrink-0">
+                          {selectedSessions.has(s.id) ? (
+                            <CheckSquare className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </button>
+                      ) : (
+                        <MessageSquare className="h-4 w-4 shrink-0" />
+                      )}
                       {editingId === s.id ? (
                         <div className="flex items-center gap-1 flex-1 min-w-0">
                           <Input
