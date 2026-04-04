@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,6 +36,8 @@ export default function Chat() {
   const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
   const [editMsgContent, setEditMsgContent] = useState("");
   const [tappedSession, setTappedSession] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +108,31 @@ export default function Chat() {
     setActiveSession(null);
     setMessages([]);
     setSessions([]);
+    setSelectMode(false);
+    setSelectedSessions(new Set());
+  };
+
+  const deleteSelectedSessions = async () => {
+    for (const id of selectedSessions) {
+      await supabase.from("chat_messages").delete().eq("session_id", id);
+      await supabase.from("chat_sessions").delete().eq("id", id);
+      if (activeSession === id) {
+        setActiveSession(null);
+        setMessages([]);
+      }
+    }
+    setSelectedSessions(new Set());
+    setSelectMode(false);
+    await loadSessions();
+  };
+
+  const toggleSessionSelection = (id: string) => {
+    setSelectedSessions(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
 
@@ -391,35 +418,69 @@ export default function Chat() {
             className="flex flex-col border-r bg-secondary/30 overflow-hidden"
           >
             <div className="flex items-center justify-between p-3 border-b">
-              <h2 className="font-semibold text-sm">Chat History</h2>
+              <h2 className="font-semibold text-sm">{selectMode ? `${selectedSessions.size} selected` : "Chat History"}</h2>
               <div className="flex gap-1">
-                {sessions.length > 0 && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear History">
-                        <Trash className="h-4 w-4 text-destructive" />
+                {selectMode ? (
+                  <>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Delete Selected" disabled={selectedSessions.size === 0}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Selected</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Delete {selectedSessions.size} selected chat(s)? This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={deleteSelectedSessions}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectMode(false); setSelectedSessions(new Set()); }} title="Cancel">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {sessions.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectMode(true)} title="Select">
+                        <CheckSquare className="h-4 w-4" />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Clear History</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Delete all {sessions.length} chat(s)? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={clearAllChats}>Delete All</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    )}
+                    {sessions.length > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Clear History">
+                            <Trash className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Clear History</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Delete all {sessions.length} chat(s)? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={clearAllChats}>Delete All</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={createNewChat} title="New Chat">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
+                      <PanelLeftClose className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={createNewChat} title="New Chat">
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
-                  <PanelLeftClose className="h-4 w-4" />
-                </Button>
               </div>
             </div>
             <ScrollArea className="flex-1">
@@ -433,12 +494,26 @@ export default function Chat() {
                         activeSession === s.id ? "bg-primary/10 text-primary" : "hover:bg-secondary text-muted-foreground"
                       }`}
                       onClick={() => {
+                        if (selectMode) {
+                          toggleSessionSelection(s.id);
+                          return;
+                        }
                         if (editingId === s.id) return;
                         setTappedSession(showActions ? null : s.id);
                         selectSession(s.id);
                       }}
                     >
-                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      {selectMode ? (
+                        <button onClick={(e) => { e.stopPropagation(); toggleSessionSelection(s.id); }} className="shrink-0">
+                          {selectedSessions.has(s.id) ? (
+                            <CheckSquare className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </button>
+                      ) : (
+                        <MessageSquare className="h-4 w-4 shrink-0" />
+                      )}
                       {editingId === s.id ? (
                         <div className="flex items-center gap-1 flex-1 min-w-0">
                           <Input
