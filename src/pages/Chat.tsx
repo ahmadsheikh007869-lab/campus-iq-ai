@@ -108,6 +108,31 @@ export default function Chat() {
     setActiveSession(null);
     setMessages([]);
     setSessions([]);
+    setSelectMode(false);
+    setSelectedSessions(new Set());
+  };
+
+  const deleteSelectedSessions = async () => {
+    for (const id of selectedSessions) {
+      await supabase.from("chat_messages").delete().eq("session_id", id);
+      await supabase.from("chat_sessions").delete().eq("id", id);
+      if (activeSession === id) {
+        setActiveSession(null);
+        setMessages([]);
+      }
+    }
+    setSelectedSessions(new Set());
+    setSelectMode(false);
+    await loadSessions();
+  };
+
+  const toggleSessionSelection = (id: string) => {
+    setSelectedSessions(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
 
