@@ -219,6 +219,8 @@ async function tryLovableAI(apiKey: string, messages: any[]): Promise<Response |
         model: "google/gemini-2.5-flash",
         messages,
         stream: true,
+        temperature: 0.7,
+        max_tokens: 4096,
       }),
     });
     if (resp.ok) return resp;
