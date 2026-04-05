@@ -60,9 +60,9 @@ When asked about any person (teacher, VC, staff, chancellor, etc.):
 ⚠️ ONE IMPORTANT RULE:
 Do NOT use the words "Late", "Dead", or "Expired" for any person UNLESS those exact words appear in the provided data. Never assume anyone's life status.
 
-WHEN DATA IS NOT AVAILABLE:
-If you cannot find information in the provided context, say:
-"I don't have detailed information about this topic right now. You can contact the university directly at info@iul.ac.in or call +91 93351 77775 for more details."
+WHEN DATA IS NOT AVAILABLE IN RETRIEVED CONTEXT:
+If you cannot find the answer in the retrieved data below, use your own knowledge about Integral University to provide a helpful answer.
+Only if you truly have no information at all, say: "I don't have detailed information about this topic right now. You can contact the university directly at info@iul.ac.in or call +91 93351 77775 for more details."
 
 LANGUAGE:
 - Detect the user's language automatically
@@ -92,6 +92,8 @@ function extractSearchTerms(query: string): string[] {
     "please", "could", "would", "should", "there", "their", "they",
     "this", "that", "have", "with", "from", "your", "will", "been",
     "more", "some", "than", "them", "into", "also", "just", "very",
+    "who", "the", "are", "can", "was", "were", "had", "has", "for",
+    "not", "but", "all", "any", "her", "his", "its", "our", "out",
     "kya", "hai", "hain", "mein", "aur", "tum", "tumhe", "kaise",
     "kaun", "kahan", "kisne", "kisi", "bataiye", "batao", "bataye",
     "university", "integral", "lucknow",
@@ -119,14 +121,44 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
 
   const sections: string[] = [];
 
-  // PDF documents
+  // PDF documents - prioritize exact phrase title match, then individual term title, then content
   try {
-    const { data: docs } = await supabase
+    // First try matching the full query phrase in title
+    const phraseQuery = terms.join(" ");
+    const { data: phraseDocs } = await supabase
       .from("documents")
       .select("title, content, category")
-      .or(buildOrFilter(terms, ["content", "title", "category"]))
-      .limit(4);
-    if (docs?.length) {
+      .ilike("title", `%${phraseQuery}%`)
+      .limit(2);
+    
+    // Then individual term title matches
+    const titleFilter = buildOrFilter(terms, ["title"]);
+    const { data: titleDocs } = await supabase
+      .from("documents")
+      .select("title, content, category")
+      .or(titleFilter)
+      .limit(5);
+    
+    // Then content matches
+    const contentFilter = buildOrFilter(terms, ["content", "category"]);
+    const { data: contentDocs } = await supabase
+      .from("documents")
+      .select("title, content, category")
+      .or(contentFilter)
+      .limit(3);
+    
+    // Merge, deduplicate by title, phrase-matches first
+    const seen = new Set<string>();
+    const allDocs: any[] = [];
+    for (const d of [...(phraseDocs || []), ...(titleDocs || []), ...(contentDocs || [])]) {
+      if (!seen.has(d.title)) {
+        seen.add(d.title);
+        allDocs.push(d);
+      }
+    }
+    const docs = allDocs.slice(0, 5);
+    
+    if (docs.length) {
       sections.push("--- UNIVERSITY DOCUMENTS ---\n" +
         docs.map((d: any) => `[${d.title}] (${d.category}):\n${d.content}`).join("\n\n---\n\n"));
     }
@@ -219,6 +251,8 @@ async function tryLovableAI(apiKey: string, messages: any[]): Promise<Response |
         model: "google/gemini-2.5-flash",
         messages,
         stream: true,
+        temperature: 0.7,
+        max_tokens: 4096,
       }),
     });
     if (resp.ok) return resp;
@@ -270,7 +304,12 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
       const terms = extractSearchTerms(lastUserMsg);
+      console.log("Search terms:", terms);
       documentContext = await fetchContext(supabase, terms);
+      console.log("Context length:", documentContext.length, "chars");
+      if (documentContext.length > 0) {
+        console.log("Context preview:", documentContext.substring(0, 300));
+      }
     } catch (e) {
       console.error("Context fetch error:", e);
     }
