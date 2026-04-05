@@ -92,6 +92,8 @@ function extractSearchTerms(query: string): string[] {
     "please", "could", "would", "should", "there", "their", "they",
     "this", "that", "have", "with", "from", "your", "will", "been",
     "more", "some", "than", "them", "into", "also", "just", "very",
+    "who", "the", "are", "can", "was", "were", "had", "has", "for",
+    "not", "but", "all", "any", "her", "his", "its", "our", "out",
     "kya", "hai", "hain", "mein", "aur", "tum", "tumhe", "kaise",
     "kaun", "kahan", "kisne", "kisi", "bataiye", "batao", "bataye",
     "university", "integral", "lucknow",
