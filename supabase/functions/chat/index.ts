@@ -121,14 +121,34 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
 
   const sections: string[] = [];
 
-  // PDF documents
+  // PDF documents - prioritize title matches first, then content matches
   try {
-    const { data: docs } = await supabase
+    const titleFilter = buildOrFilter(terms, ["title"]);
+    const { data: titleDocs } = await supabase
       .from("documents")
       .select("title, content, category")
-      .or(buildOrFilter(terms, ["content", "title", "category"]))
-      .limit(4);
-    if (docs?.length) {
+      .or(titleFilter)
+      .limit(3);
+    
+    const contentFilter = buildOrFilter(terms, ["content", "category"]);
+    const { data: contentDocs } = await supabase
+      .from("documents")
+      .select("title, content, category")
+      .or(contentFilter)
+      .limit(3);
+    
+    // Merge, deduplicate by title, title-matches first
+    const seen = new Set<string>();
+    const allDocs: any[] = [];
+    for (const d of [...(titleDocs || []), ...(contentDocs || [])]) {
+      if (!seen.has(d.title)) {
+        seen.add(d.title);
+        allDocs.push(d);
+      }
+    }
+    const docs = allDocs.slice(0, 5);
+    
+    if (docs.length) {
       sections.push("--- UNIVERSITY DOCUMENTS ---\n" +
         docs.map((d: any) => `[${d.title}] (${d.category}):\n${d.content}`).join("\n\n---\n\n"));
     }
