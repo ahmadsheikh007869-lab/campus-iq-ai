@@ -121,15 +121,25 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
 
   const sections: string[] = [];
 
-  // PDF documents - prioritize title matches first, then content matches
+  // PDF documents - prioritize exact phrase title match, then individual term title, then content
   try {
+    // First try matching the full query phrase in title
+    const phraseQuery = terms.join(" ");
+    const { data: phraseDocs } = await supabase
+      .from("documents")
+      .select("title, content, category")
+      .ilike("title", `%${phraseQuery}%`)
+      .limit(2);
+    
+    // Then individual term title matches
     const titleFilter = buildOrFilter(terms, ["title"]);
     const { data: titleDocs } = await supabase
       .from("documents")
       .select("title, content, category")
       .or(titleFilter)
-      .limit(3);
+      .limit(5);
     
+    // Then content matches
     const contentFilter = buildOrFilter(terms, ["content", "category"]);
     const { data: contentDocs } = await supabase
       .from("documents")
@@ -137,10 +147,10 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
       .or(contentFilter)
       .limit(3);
     
-    // Merge, deduplicate by title, title-matches first
+    // Merge, deduplicate by title, phrase-matches first
     const seen = new Set<string>();
     const allDocs: any[] = [];
-    for (const d of [...(titleDocs || []), ...(contentDocs || [])]) {
+    for (const d of [...(phraseDocs || []), ...(titleDocs || []), ...(contentDocs || [])]) {
       if (!seen.has(d.title)) {
         seen.add(d.title);
         allDocs.push(d);
