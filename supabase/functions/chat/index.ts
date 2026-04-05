@@ -272,7 +272,12 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
       const terms = extractSearchTerms(lastUserMsg);
+      console.log("Search terms:", terms);
       documentContext = await fetchContext(supabase, terms);
+      console.log("Context length:", documentContext.length, "chars");
+      if (documentContext.length > 0) {
+        console.log("Context preview:", documentContext.substring(0, 300));
+      }
     } catch (e) {
       console.error("Context fetch error:", e);
     }
