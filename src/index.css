@@ -104,3 +104,112 @@
     font-family: 'DM Serif Display', serif;
   }
 }
+
+/* ============================================
+   Premium chat animations & micro-interactions
+   (UI layout untouched — these are opt-in classes)
+   ============================================ */
+@layer utilities {
+  /* Smooth fade + slide for chat bubbles */
+  @keyframes msg-in {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+  .animate-msg-in {
+    animation: msg-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Hover lift + zoom for cards / sidebar items */
+  .hover-lift {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px) scale(1.015);
+    box-shadow: 0 8px 24px -12px hsl(var(--primary) / 0.25);
+  }
+
+  /* Cursor-follow glow (uses CSS vars set inline by JS handlers) */
+  .glow-follow {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .glow-follow::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    background: radial-gradient(
+      180px circle at var(--mx, 50%) var(--my, 50%),
+      hsl(var(--primary) / 0.28),
+      transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-follow:hover::before { opacity: 1; }
+  .glow-follow > * { position: relative; z-index: 1; }
+
+  /* Ripple effect on click — child <span class="ripple"> rendered by JS */
+  .ripple-btn { position: relative; overflow: hidden; }
+  @keyframes ripple-anim {
+    to { transform: scale(4); opacity: 0; }
+  }
+  .ripple {
+    position: absolute;
+    border-radius: 9999px;
+    transform: scale(0);
+    background: hsl(var(--primary-foreground) / 0.45);
+    pointer-events: none;
+    animation: ripple-anim 0.6s linear;
+  }
+
+  /* Animated gradient border (use with .anim-border before bg) */
+  @keyframes border-spin {
+    to { transform: rotate(360deg); }
+  }
+  .anim-border {
+    position: relative;
+    isolation: isolate;
+  }
+  .anim-border::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 0deg,
+      hsl(var(--primary)),
+      hsl(var(--accent)),
+      hsl(var(--primary)),
+      hsl(var(--accent)),
+      hsl(var(--primary))
+    );
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 0.3s ease;
+    animation: border-spin 4s linear infinite;
+  }
+  .anim-border:hover::before,
+  .anim-border:focus-visible::before { opacity: 0.7; }
+
+  /* Soft pulsing glow for the primary send button on idle */
+  @keyframes soft-glow {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45); }
+    50%      { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
+  }
+  .glow-pulse { animation: soft-glow 2.4s ease-in-out infinite; }
+
+  /* Streamed-text caret for assistant typing */
+  @keyframes caret-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
+  .stream-caret::after {
+    content: "▍";
+    margin-left: 2px;
+    color: hsl(var(--primary));
+    animation: caret-blink 1s steps(1) infinite;
+  }
+}
