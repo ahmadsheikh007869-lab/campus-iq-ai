@@ -342,7 +342,8 @@ serve(async (req) => {
         documentContext
       : SYSTEM_PROMPT;
 
-    const recentMessages = messages.slice(-3);
+    // Keep last 12 turns for solid context memory while staying within token budget
+    const recentMessages = messages.slice(-12);
 
     const aiMessages = [
       { role: "system", content: systemWithContext },
