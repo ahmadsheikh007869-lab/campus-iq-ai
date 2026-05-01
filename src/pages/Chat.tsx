@@ -42,6 +42,27 @@ export default function Chat() {
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Premium UI helpers — pure visual, no layout impact.
+  const triggerRipple = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const span = document.createElement("span");
+    span.className = "ripple";
+    span.style.width = span.style.height = `${size}px`;
+    span.style.left = `${e.clientX - rect.left - size / 2}px`;
+    span.style.top = `${e.clientY - rect.top - size / 2}px`;
+    target.appendChild(span);
+    setTimeout(() => span.remove(), 650);
+  };
+
+  const handleGlowMove = (e: React.MouseEvent<HTMLElement>) => {
+    const t = e.currentTarget as HTMLElement;
+    const rect = t.getBoundingClientRect();
+    t.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+    t.style.setProperty("--my", `${e.clientY - rect.top}px`);
+  };
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
