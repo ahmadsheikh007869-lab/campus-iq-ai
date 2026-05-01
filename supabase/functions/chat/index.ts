@@ -7,31 +7,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const IDENTITY_RULES: Record<string, string> = {
-  "tumhe kisne banaya": "Mujhe Ahmad Shaikh ne banaya hai.",
-  "who created you": "Mujhe Ahmad Shaikh ne banaya hai.",
-  "who built you": "Mujhe Ahmad Shaikh ne banaya hai.",
-  "who made you": "Mujhe Ahmad Shaikh ne banaya hai.",
-  "kisne banaya": "Mujhe Ahmad Shaikh ne banaya hai.",
-  "ahmad shaikh kaun hai": "Ahmad Shaikh Integral University ka student hai aur BCA 3rd year mein hai.",
-  "who is ahmad shaikh": "Ahmad Shaikh Integral University ka student hai aur BCA 3rd year mein hai.",
-  "ahmad shaikh kahan rehte": "Woh Gomti Nagar, Vibhuti Khand mein rehte hain.",
-  "ahmad shaikh address": "Woh Gomti Nagar, Vibhuti Khand mein rehte hain.",
-  "tum kaise bane ho": "Mujhe modern web technologies ka use karke develop kiya gaya hai. Kuch code Ahmad Shaikh ne khud likha hai aur kuch alag-alag resources se liya gaya hai. Frontend mein HTML, CSS, JavaScript (React) ka use hua hai. Backend mein APIs aur server-side logic use hua hai. Data ko database mein store kiya gaya hai aur AI system ke through responses generate hote hain.",
-  "how are you built": "Mujhe modern web technologies ka use karke develop kiya gaya hai. Kuch code Ahmad Shaikh ne khud likha hai aur kuch alag-alag resources se liya gaya hai. Frontend mein HTML, CSS, JavaScript (React) ka use hua hai. Backend mein APIs aur server-side logic use hua hai. Data ko database mein store kiya gaya hai aur AI system ke through responses generate hote hain.",
-  "chatgpt use hua": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-  "did you use chatgpt": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-  "gemini use hua": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-  "deepseek use": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-  "grok use": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-  "ai tool use": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-  "kya ai use hua": "Nahi, code likhne ke liye ChatGPT, Gemini, DeepSeek, Grok ya kisi bhi AI chatbot ka use nahi kiya gaya.",
-};
+const CREATOR_ANSWER =
+  "I was developed by **Mohd Ahmad**, a BCA Final Year student. He designed and built my system with a focus on intelligent responses, a smooth UI, and real-world usability.";
+const CREATOR_ANSWER_HI =
+  "Mujhe **Mohd Ahmad** ne banaya hai — woh BCA Final Year ke student hain. Unhone is system ko intelligent responses, smooth UI aur real-world usability ke liye design kiya hai.";
+const TOOL_DENIAL =
+  "Main ek intelligent AI system hoon jo modern web technologies se bana hai. Main kisi bhi external AI platform ka naam reveal nahi karta.";
+
+const IDENTITY_RULES: Array<{ patterns: string[]; answer: string }> = [
+  {
+    patterns: ["who created you", "who built you", "who made you", "who developed you", "who is your creator", "who is your developer"],
+    answer: CREATOR_ANSWER,
+  },
+  {
+    patterns: ["tumhe kisne banaya", "kisne banaya", "tumhara creator", "tumhe kisne develop", "aap ko kisne banaya"],
+    answer: CREATOR_ANSWER_HI,
+  },
+  {
+    patterns: ["who is mohd ahmad", "who is ahmad shaikh", "mohd ahmad kaun", "ahmad shaikh kaun"],
+    answer: "Mohd Ahmad is a BCA Final Year student at Integral University. He designed and developed this AI assistant himself, focusing on intelligent responses and smooth user experience.",
+  },
+  {
+    patterns: ["chatgpt use", "did you use chatgpt", "gemini use", "openai use", "lovable use", "supabase use", "deepseek use", "grok use", "claude use", "kya ai use hua", "kaunsa ai use", "which ai do you use", "what ai are you"],
+    answer: TOOL_DENIAL,
+  },
+];
 
 function checkIdentityRule(query: string): string | null {
-  const lower = query.toLowerCase().replace(/[?\u0964]/g, "").trim();
-  for (const [key, value] of Object.entries(IDENTITY_RULES)) {
-    if (lower.includes(key)) return value;
+  const lower = query.toLowerCase().replace(/[?\u0964.,!]/g, " ").replace(/\s+/g, " ").trim();
+  for (const rule of IDENTITY_RULES) {
+    for (const p of rule.patterns) {
+      if (lower.includes(p)) return rule.answer;
+    }
   }
   return null;
 }
