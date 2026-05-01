@@ -644,7 +644,9 @@ export default function Chat() {
                     <button
                       key={q}
                       onClick={() => sendMessage(q)}
-                      className="rounded-xl border bg-card p-3 text-left text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                      onMouseMove={handleGlowMove}
+                      onMouseDown={triggerRipple}
+                      className="ripple-btn glow-follow hover-lift rounded-xl border bg-card p-3 text-left text-sm text-muted-foreground hover:bg-secondary transition-colors"
                     >
                       {q}
                     </button>
@@ -658,7 +660,8 @@ export default function Chat() {
                     key={i}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                    className={`animate-msg-in flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div className="group relative max-w-[80%]">
                       {editingMsgIdx === i && msg.role === "user" ? (
@@ -739,7 +742,13 @@ export default function Chat() {
               className="flex-1"
               disabled={loading}
             />
-            <Button size="icon" onClick={() => sendMessage(input)} disabled={loading || !input.trim()}>
+            <Button
+              size="icon"
+              onClick={(e) => { triggerRipple(e); sendMessage(input); }}
+              onMouseMove={handleGlowMove}
+              disabled={loading || !input.trim()}
+              className={`ripple-btn glow-follow anim-border ${input.trim() && !loading ? "glow-pulse" : ""}`}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
