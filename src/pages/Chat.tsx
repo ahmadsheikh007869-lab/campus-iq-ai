@@ -367,8 +367,8 @@ export default function Chat() {
         .select("id, created_at")
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
-      if (allMsgs && allMsgs.length > 3) {
-        const toDelete = allMsgs.slice(0, allMsgs.length - 3).map((m) => m.id);
+      if (allMsgs && allMsgs.length > MAX_HISTORY) {
+        const toDelete = allMsgs.slice(0, allMsgs.length - MAX_HISTORY).map((m) => m.id);
         await supabase.from("chat_messages").delete().in("id", toDelete);
       }
     } catch (e) {
@@ -382,7 +382,7 @@ export default function Chat() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, mode }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -452,8 +452,8 @@ export default function Chat() {
             .select("id, created_at")
             .eq("session_id", sessionId)
             .order("created_at", { ascending: true });
-          if (allMsgs && allMsgs.length > 3) {
-            const toDelete = allMsgs.slice(0, allMsgs.length - 3).map((m) => m.id);
+          if (allMsgs && allMsgs.length > MAX_HISTORY) {
+            const toDelete = allMsgs.slice(0, allMsgs.length - MAX_HISTORY).map((m) => m.id);
             await supabase.from("chat_messages").delete().in("id", toDelete);
           }
         } catch (e) {
@@ -464,7 +464,7 @@ export default function Chat() {
       setMessages([...newMessages, { role: "assistant", content: "Something went wrong. Please try again." }]);
     }
     setLoading(false);
-  }, [activeSession, messages, loading]);
+  }, [activeSession, messages, loading, mode]);
 
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) return;
