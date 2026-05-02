@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash, CheckSquare, Square } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +24,21 @@ import {
 
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string };
+type ChatMode = "simple" | "expert" | "creative";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const MAX_HISTORY = 30;
+
+// Generate 3 quick follow-up suggestions client-side from the assistant text + last user query.
+function generateFollowUps(userQ: string, _assistantA: string): string[] {
+  const q = (userQ || "").trim();
+  if (!q) return [];
+  return [
+    `Explain this in simpler words`,
+    `Give me a real-world example of "${q.slice(0, 60)}"`,
+    `What should I learn next about this?`,
+  ];
+}
 
 export default function Chat() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -38,9 +55,33 @@ export default function Chat() {
   const [tappedSession, setTappedSession] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<ChatMode>(() => (localStorage.getItem("iu_chat_mode") as ChatMode) || "expert");
+  const [readAloud, setReadAloud] = useState<boolean>(() => localStorage.getItem("iu_read_aloud") === "1");
+  const [scrollPct, setScrollPct] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
+  const lastSpokenRef = useRef<string>("");
+
+  // Persist mode + read-aloud
+  useEffect(() => { localStorage.setItem("iu_chat_mode", mode); }, [mode]);
+  useEffect(() => { localStorage.setItem("iu_read_aloud", readAloud ? "1" : "0"); }, [readAloud]);
+
+  // Speak the latest assistant message when read-aloud is on (only when it's complete = not loading)
+  useEffect(() => {
+    if (!readAloud || loading || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (lastSpokenRef.current === last.content) return;
+    lastSpokenRef.current = last.content;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(last.content.replace(/[*_`#>[\]()]/g, "").slice(0, 600));
+      u.rate = 1; u.pitch = 1;
+      window.speechSynthesis.speak(u);
+    } catch {/* no-op */}
+  }, [messages, loading, readAloud]);
 
   // Premium UI helpers — pure visual, no layout impact.
   const triggerRipple = (e: React.MouseEvent<HTMLElement>) => {
@@ -61,6 +102,26 @@ export default function Chat() {
     const rect = t.getBoundingClientRect();
     t.style.setProperty("--mx", `${e.clientX - rect.left}px`);
     t.style.setProperty("--my", `${e.clientY - rect.top}px`);
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: "Message copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Couldn't access clipboard.", variant: "destructive" });
+    }
+  };
+
+  const shareMessage = async (text: string) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "IU Assistant", text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        toast({ title: "Link sharing not supported", description: "Message copied instead." });
+      }
+    } catch {/* user cancelled */}
   };
 
   useEffect(() => {
