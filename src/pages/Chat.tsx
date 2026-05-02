@@ -466,6 +466,28 @@ export default function Chat() {
     setLoading(false);
   }, [activeSession, messages, loading, mode]);
 
+  // Regenerate the last assistant reply by re-sending the prior user message.
+  const regenerateLast = useCallback(async () => {
+    if (loading || !activeSession || messages.length < 2) return;
+    // Find last user message
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx === -1) return;
+    const trimmed = messages.slice(0, lastUserIdx + 1);
+    const lastUserText = trimmed[trimmed.length - 1].content;
+    setMessages(trimmed);
+    // Remove old assistant rows after this user msg in DB by clearing & re-inserting trimmed set
+    await supabase.from("chat_messages").delete().eq("session_id", activeSession);
+    for (const m of trimmed) {
+      await supabase.from("chat_messages").insert({ session_id: activeSession, role: m.role, content: m.content });
+    }
+    // Re-trigger send by removing the last user msg from state then calling sendMessage
+    setMessages(trimmed.slice(0, -1));
+    await sendMessage(lastUserText);
+  }, [messages, activeSession, loading, sendMessage]);
+
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) return;
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
