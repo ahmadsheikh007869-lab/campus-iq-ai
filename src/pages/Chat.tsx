@@ -933,7 +933,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-              placeholder="Ask about Integral University..."
+              placeholder="Ask anything..."
               className="flex-1"
               disabled={loading}
             />
