@@ -687,7 +687,7 @@ export default function Chat() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="flex items-center gap-2 border-b px-4 py-2">
+        <div className="relative flex items-center gap-2 border-b px-4 py-2">
           {!sidebarOpen && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
               <PanelLeft className="h-4 w-4" />
@@ -698,16 +698,79 @@ export default function Chat() {
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
             </h1>
           </div>
+          {/* Mode switch */}
+          <div className="hidden sm:flex items-center gap-1 rounded-full bg-secondary p-0.5 text-xs" role="tablist" aria-label="Response mode">
+            {(["simple", "expert", "creative"] as ChatMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-2.5 py-1 rounded-full transition-all capitalize ${mode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                aria-pressed={mode === m}
+              >
+                {m === "creative" ? <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" />{m}</span> : m}
+              </button>
+            ))}
+          </div>
+          {/* Settings */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64">
+              <div className="space-y-3">
+                <div className="text-sm font-semibold">Settings</div>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="read-aloud" className="text-sm flex items-center gap-2">
+                    {readAloud ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                    Read replies aloud
+                  </Label>
+                  <Switch id="read-aloud" checked={readAloud} onCheckedChange={(v) => {
+                    setReadAloud(v);
+                    if (!v && typeof window !== "undefined" && "speechSynthesis" in window) {
+                      window.speechSynthesis.cancel();
+                    }
+                  }} />
+                </div>
+                <div className="sm:hidden space-y-1.5">
+                  <Label className="text-sm">Mode</Label>
+                  <div className="flex gap-1 rounded-full bg-secondary p-0.5 text-xs">
+                    {(["simple", "expert", "creative"] as ChatMode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMode(m)}
+                        className={`flex-1 px-2 py-1 rounded-full transition-all capitalize ${mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           {activeSession && (
             <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
               <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
             </Button>
           )}
+          {/* Scroll progress bar */}
+          <div
+            className="absolute left-0 bottom-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transition-[width] duration-150"
+            style={{ width: `${scrollPct}%` }}
+            aria-hidden
+          />
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1">
-          <div className="mx-auto max-w-3xl px-4 py-6">
+        <ScrollArea className="flex-1" onScrollCapture={(e) => {
+          const t = e.currentTarget.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+          if (!t) return;
+          const max = t.scrollHeight - t.clientHeight;
+          setScrollPct(max > 0 ? Math.min(100, (t.scrollTop / max) * 100) : 0);
+        }}>
+          <div ref={scrollRootRef} className="mx-auto max-w-3xl px-4 py-6">
             {!activeSession && messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
