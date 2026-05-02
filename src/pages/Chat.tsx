@@ -851,6 +851,34 @@ export default function Chat() {
                               <PenLine className="h-3 w-3" /> Edit
                             </button>
                           )}
+                          {msg.role === "assistant" && !(loading && i === messages.length - 1) && (
+                            <div className="mt-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => copyToClipboard(msg.content)}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                title="Copy"
+                              >
+                                <Copy className="h-3 w-3" /> Copy
+                              </button>
+                              {i === messages.length - 1 && (
+                                <button
+                                  onClick={regenerateLast}
+                                  disabled={loading}
+                                  className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+                                  title="Regenerate"
+                                >
+                                  <RotateCcw className="h-3 w-3" /> Regenerate
+                                </button>
+                              )}
+                              <button
+                                onClick={() => shareMessage(msg.content)}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                title="Share"
+                              >
+                                <Share2 className="h-3 w-3" /> Share
+                              </button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -867,6 +895,27 @@ export default function Chat() {
                     </div>
                   </div>
                 )}
+                {/* Smart follow-up suggestions */}
+                {!loading && messages.length >= 2 && messages[messages.length - 1]?.role === "assistant" && (() => {
+                  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+                  const ideas = generateFollowUps(lastUser, messages[messages.length - 1].content);
+                  if (ideas.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {ideas.map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => sendMessage(q)}
+                          onMouseMove={handleGlowMove}
+                          onMouseDown={triggerRipple}
+                          className="ripple-btn glow-follow hover-lift rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          ✨ {q}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div ref={bottomRef} />
               </div>
             )}
