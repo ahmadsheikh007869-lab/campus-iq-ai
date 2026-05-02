@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash, CheckSquare, Square } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +24,21 @@ import {
 
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string };
+type ChatMode = "simple" | "expert" | "creative";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const MAX_HISTORY = 30;
+
+// Generate 3 quick follow-up suggestions client-side from the assistant text + last user query.
+function generateFollowUps(userQ: string, _assistantA: string): string[] {
+  const q = (userQ || "").trim();
+  if (!q) return [];
+  return [
+    `Explain this in simpler words`,
+    `Give me a real-world example of "${q.slice(0, 60)}"`,
+    `What should I learn next about this?`,
+  ];
+}
 
 export default function Chat() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -38,9 +55,33 @@ export default function Chat() {
   const [tappedSession, setTappedSession] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<ChatMode>(() => (localStorage.getItem("iu_chat_mode") as ChatMode) || "expert");
+  const [readAloud, setReadAloud] = useState<boolean>(() => localStorage.getItem("iu_read_aloud") === "1");
+  const [scrollPct, setScrollPct] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
+  const lastSpokenRef = useRef<string>("");
+
+  // Persist mode + read-aloud
+  useEffect(() => { localStorage.setItem("iu_chat_mode", mode); }, [mode]);
+  useEffect(() => { localStorage.setItem("iu_read_aloud", readAloud ? "1" : "0"); }, [readAloud]);
+
+  // Speak the latest assistant message when read-aloud is on (only when it's complete = not loading)
+  useEffect(() => {
+    if (!readAloud || loading || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (lastSpokenRef.current === last.content) return;
+    lastSpokenRef.current = last.content;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(last.content.replace(/[*_`#>[\]()]/g, "").slice(0, 600));
+      u.rate = 1; u.pitch = 1;
+      window.speechSynthesis.speak(u);
+    } catch {/* no-op */}
+  }, [messages, loading, readAloud]);
 
   // Premium UI helpers — pure visual, no layout impact.
   const triggerRipple = (e: React.MouseEvent<HTMLElement>) => {
@@ -61,6 +102,26 @@ export default function Chat() {
     const rect = t.getBoundingClientRect();
     t.style.setProperty("--mx", `${e.clientX - rect.left}px`);
     t.style.setProperty("--my", `${e.clientY - rect.top}px`);
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: "Message copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Couldn't access clipboard.", variant: "destructive" });
+    }
+  };
+
+  const shareMessage = async (text: string) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "IU Assistant", text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        toast({ title: "Link sharing not supported", description: "Message copied instead." });
+      }
+    } catch {/* user cancelled */}
   };
 
   useEffect(() => {
@@ -195,7 +256,7 @@ export default function Chat() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({ messages: updatedMessages, mode }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -306,8 +367,8 @@ export default function Chat() {
         .select("id, created_at")
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
-      if (allMsgs && allMsgs.length > 3) {
-        const toDelete = allMsgs.slice(0, allMsgs.length - 3).map((m) => m.id);
+      if (allMsgs && allMsgs.length > MAX_HISTORY) {
+        const toDelete = allMsgs.slice(0, allMsgs.length - MAX_HISTORY).map((m) => m.id);
         await supabase.from("chat_messages").delete().in("id", toDelete);
       }
     } catch (e) {
@@ -321,7 +382,7 @@ export default function Chat() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, mode }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -391,8 +452,8 @@ export default function Chat() {
             .select("id, created_at")
             .eq("session_id", sessionId)
             .order("created_at", { ascending: true });
-          if (allMsgs && allMsgs.length > 3) {
-            const toDelete = allMsgs.slice(0, allMsgs.length - 3).map((m) => m.id);
+          if (allMsgs && allMsgs.length > MAX_HISTORY) {
+            const toDelete = allMsgs.slice(0, allMsgs.length - MAX_HISTORY).map((m) => m.id);
             await supabase.from("chat_messages").delete().in("id", toDelete);
           }
         } catch (e) {
@@ -403,7 +464,29 @@ export default function Chat() {
       setMessages([...newMessages, { role: "assistant", content: "Something went wrong. Please try again." }]);
     }
     setLoading(false);
-  }, [activeSession, messages, loading]);
+  }, [activeSession, messages, loading, mode]);
+
+  // Regenerate the last assistant reply by re-sending the prior user message.
+  const regenerateLast = useCallback(async () => {
+    if (loading || !activeSession || messages.length < 2) return;
+    // Find last user message
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx === -1) return;
+    const trimmed = messages.slice(0, lastUserIdx + 1);
+    const lastUserText = trimmed[trimmed.length - 1].content;
+    setMessages(trimmed);
+    // Remove old assistant rows after this user msg in DB by clearing & re-inserting trimmed set
+    await supabase.from("chat_messages").delete().eq("session_id", activeSession);
+    for (const m of trimmed) {
+      await supabase.from("chat_messages").insert({ session_id: activeSession, role: m.role, content: m.content });
+    }
+    // Re-trigger send by removing the last user msg from state then calling sendMessage
+    setMessages(trimmed.slice(0, -1));
+    await sendMessage(lastUserText);
+  }, [messages, activeSession, loading, sendMessage]);
 
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) return;
@@ -604,7 +687,7 @@ export default function Chat() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="flex items-center gap-2 border-b px-4 py-2">
+        <div className="relative flex items-center gap-2 border-b px-4 py-2">
           {!sidebarOpen && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
               <PanelLeft className="h-4 w-4" />
@@ -615,16 +698,79 @@ export default function Chat() {
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
             </h1>
           </div>
+          {/* Mode switch */}
+          <div className="hidden sm:flex items-center gap-1 rounded-full bg-secondary p-0.5 text-xs" role="tablist" aria-label="Response mode">
+            {(["simple", "expert", "creative"] as ChatMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-2.5 py-1 rounded-full transition-all capitalize ${mode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                aria-pressed={mode === m}
+              >
+                {m === "creative" ? <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" />{m}</span> : m}
+              </button>
+            ))}
+          </div>
+          {/* Settings */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64">
+              <div className="space-y-3">
+                <div className="text-sm font-semibold">Settings</div>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="read-aloud" className="text-sm flex items-center gap-2">
+                    {readAloud ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                    Read replies aloud
+                  </Label>
+                  <Switch id="read-aloud" checked={readAloud} onCheckedChange={(v) => {
+                    setReadAloud(v);
+                    if (!v && typeof window !== "undefined" && "speechSynthesis" in window) {
+                      window.speechSynthesis.cancel();
+                    }
+                  }} />
+                </div>
+                <div className="sm:hidden space-y-1.5">
+                  <Label className="text-sm">Mode</Label>
+                  <div className="flex gap-1 rounded-full bg-secondary p-0.5 text-xs">
+                    {(["simple", "expert", "creative"] as ChatMode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMode(m)}
+                        className={`flex-1 px-2 py-1 rounded-full transition-all capitalize ${mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           {activeSession && (
             <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
               <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
             </Button>
           )}
+          {/* Scroll progress bar */}
+          <div
+            className="absolute left-0 bottom-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transition-[width] duration-150"
+            style={{ width: `${scrollPct}%` }}
+            aria-hidden
+          />
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1">
-          <div className="mx-auto max-w-3xl px-4 py-6">
+        <ScrollArea className="flex-1" onScrollCapture={(e) => {
+          const t = e.currentTarget.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+          if (!t) return;
+          const max = t.scrollHeight - t.clientHeight;
+          setScrollPct(max > 0 ? Math.min(100, (t.scrollTop / max) * 100) : 0);
+        }}>
+          <div ref={scrollRootRef} className="mx-auto max-w-3xl px-4 py-6">
             {!activeSession && messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
@@ -705,6 +851,34 @@ export default function Chat() {
                               <PenLine className="h-3 w-3" /> Edit
                             </button>
                           )}
+                          {msg.role === "assistant" && !(loading && i === messages.length - 1) && (
+                            <div className="mt-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => copyToClipboard(msg.content)}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                title="Copy"
+                              >
+                                <Copy className="h-3 w-3" /> Copy
+                              </button>
+                              {i === messages.length - 1 && (
+                                <button
+                                  onClick={regenerateLast}
+                                  disabled={loading}
+                                  className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+                                  title="Regenerate"
+                                >
+                                  <RotateCcw className="h-3 w-3" /> Regenerate
+                                </button>
+                              )}
+                              <button
+                                onClick={() => shareMessage(msg.content)}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                title="Share"
+                              >
+                                <Share2 className="h-3 w-3" /> Share
+                              </button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -721,6 +895,27 @@ export default function Chat() {
                     </div>
                   </div>
                 )}
+                {/* Smart follow-up suggestions */}
+                {!loading && messages.length >= 2 && messages[messages.length - 1]?.role === "assistant" && (() => {
+                  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+                  const ideas = generateFollowUps(lastUser, messages[messages.length - 1].content);
+                  if (ideas.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {ideas.map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => sendMessage(q)}
+                          onMouseMove={handleGlowMove}
+                          onMouseDown={triggerRipple}
+                          className="ripple-btn glow-follow hover-lift rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          ✨ {q}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div ref={bottomRef} />
               </div>
             )}
@@ -738,7 +933,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-              placeholder="Ask about Integral University..."
+              placeholder="Ask anything..."
               className="flex-1"
               disabled={loading}
             />

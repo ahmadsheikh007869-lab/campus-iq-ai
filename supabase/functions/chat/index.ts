@@ -230,7 +230,7 @@ async function fetchContext(supabase: any, terms: string[]): Promise<string> {
   return sections.length > 0 ? "\n\n" + sections.join("\n\n") : "";
 }
 
-async function tryOpenAI(apiKey: string, messages: any[]): Promise<Response | null> {
+async function tryOpenAI(apiKey: string, messages: any[], temperature = 0.7): Promise<Response | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
     try {
@@ -244,7 +244,7 @@ async function tryOpenAI(apiKey: string, messages: any[]): Promise<Response | nu
           model: "gpt-4o-mini",
           messages,
           stream: true,
-          temperature: 0.7,
+          temperature,
           max_tokens: 4096,
         }),
       });
@@ -261,7 +261,7 @@ async function tryOpenAI(apiKey: string, messages: any[]): Promise<Response | nu
   return null;
 }
 
-async function tryLovableAI(apiKey: string, messages: any[]): Promise<Response | null> {
+async function tryLovableAI(apiKey: string, messages: any[], temperature = 0.7): Promise<Response | null> {
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -273,7 +273,7 @@ async function tryLovableAI(apiKey: string, messages: any[]): Promise<Response |
         model: "google/gemini-2.5-flash",
         messages,
         stream: true,
-        temperature: 0.7,
+        temperature,
         max_tokens: 4096,
       }),
     });
@@ -304,10 +304,40 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const { messages, mode } = await req.json();
+
+    // ---- Input validation / sanitization ----
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Invalid request: messages array required." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const MAX_MSGS = 40;
+    const MAX_LEN = 8000;
+    const safeMessages = messages
+      .slice(-MAX_MSGS)
+      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, MAX_LEN) }));
+    if (safeMessages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Invalid request: no valid messages." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const safeMode: "simple" | "expert" | "creative" =
+      mode === "simple" || mode === "creative" ? mode : "expert";
+    const modeTemp = safeMode === "creative" ? 0.95 : safeMode === "simple" ? 0.5 : 0.7;
+    const modeInstruction =
+      safeMode === "simple"
+        ? "\n\n🎚 MODE: SIMPLE — Use very short, easy language. 1 short answer + 2–3 bullet points. Avoid jargon."
+        : safeMode === "creative"
+          ? "\n\n🎚 MODE: CREATIVE — Be imaginative, use analogies, vivid examples, and engaging storytelling while staying accurate."
+          : "\n\n🎚 MODE: EXPERT — Provide thorough, well-structured, in-depth answers with examples, headings, and tables when useful.";
 
     const lastUserMsg =
-      [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+      [...safeMessages].reverse().find((m: any) => m.role === "user")?.content || "";
 
     // Check identity rules first
     const identityResponse = checkIdentityRule(lastUserMsg);
@@ -336,14 +366,15 @@ serve(async (req) => {
       console.error("Context fetch error:", e);
     }
 
-    const systemWithContext = documentContext
-      ? SYSTEM_PROMPT +
-        "\n\n📄 RETRIEVED DATA (use this to answer the question):\n" +
-        documentContext
-      : SYSTEM_PROMPT;
+    const systemWithContext =
+      (documentContext
+        ? SYSTEM_PROMPT +
+          "\n\n📄 RETRIEVED DATA (use this to answer the question):\n" +
+          documentContext
+        : SYSTEM_PROMPT) + modeInstruction;
 
     // Keep last 12 turns for solid context memory while staying within token budget
-    const recentMessages = messages.slice(-12);
+    const recentMessages = safeMessages.slice(-12);
 
     const aiMessages = [
       { role: "system", content: systemWithContext },
@@ -356,7 +387,7 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (OPENAI_API_KEY) {
       console.log("Trying OpenAI...");
-      streamResponse = await tryOpenAI(OPENAI_API_KEY, aiMessages);
+      streamResponse = await tryOpenAI(OPENAI_API_KEY, aiMessages, modeTemp);
       if (streamResponse) provider = "openai";
     }
 
@@ -364,7 +395,7 @@ serve(async (req) => {
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (LOVABLE_API_KEY) {
         console.log("Falling back to AI gateway...");
-        streamResponse = await tryLovableAI(LOVABLE_API_KEY, aiMessages);
+        streamResponse = await tryLovableAI(LOVABLE_API_KEY, aiMessages, modeTemp);
         if (streamResponse) {
           if (streamResponse.headers.get("Content-Type")?.includes("application/json")) {
             return streamResponse;
