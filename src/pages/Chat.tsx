@@ -11,6 +11,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -47,7 +53,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
@@ -828,21 +834,52 @@ export default function Chat() {
                         </div>
                       ) : (
                         <>
-                          <div
-                            className={`rounded-2xl px-4 py-3 text-sm ${
-                              msg.role === "user"
-                                ? "rounded-br-md bg-primary text-primary-foreground"
-                                : "rounded-bl-md bg-secondary text-secondary-foreground"
-                            }`}
-                          >
-                            {msg.role === "assistant" ? (
-                              <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              <div
+                                className={`select-text rounded-2xl px-4 py-3 text-sm ${
+                                  msg.role === "user"
+                                    ? "rounded-br-md bg-primary text-primary-foreground"
+                                    : "rounded-bl-md bg-secondary text-secondary-foreground"
+                                }`}
+                                style={{ WebkitTouchCallout: "none" }}
+                              >
+                                {msg.role === "assistant" ? (
+                                  <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  msg.content
+                                )}
                               </div>
-                            ) : (
-                              msg.content
-                            )}
-                          </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-56">
+                              <ContextMenuItem onClick={() => copyToClipboard(msg.content)}>
+                                <Copy className="h-4 w-4 mr-2" /> Copy message
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() => {
+                                  const snippet = msg.content.replace(/\s+/g, " ").trim().slice(0, 240);
+                                  setInput(`About this message: "${snippet}" — `);
+                                  setTimeout(() => inputRef.current?.focus(), 0);
+                                }}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-2" /> Ask a follow-up about this
+                              </ContextMenuItem>
+                              {msg.role === "assistant" && (
+                                <ContextMenuItem onClick={() => shareMessage(msg.content)}>
+                                  <Share2 className="h-4 w-4 mr-2" /> Share
+                                </ContextMenuItem>
+                              )}
+                              {msg.role === "user" && (
+                                <ContextMenuItem
+                                  onClick={() => { setEditingMsgIdx(i); setEditMsgContent(msg.content); }}
+                                >
+                                  <PenLine className="h-4 w-4 mr-2" /> Edit message
+                                </ContextMenuItem>
+                              )}
+                            </ContextMenuContent>
+                          </ContextMenu>
                           {msg.role === "user" && !loading && (
                             <button
                               onClick={() => { setEditingMsgIdx(i); setEditMsgContent(msg.content); }}
