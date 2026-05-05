@@ -317,8 +317,20 @@ serve(async (req) => {
     const MAX_LEN = 8000;
     const safeMessages = messages
       .slice(-MAX_MSGS)
-      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, MAX_LEN) }));
+      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && (typeof m.content === "string" || Array.isArray(m.content)))
+      .map((m: any) => {
+        // Support multimodal content (array of parts) for image vision; otherwise clamp string length.
+        if (Array.isArray(m.content)) {
+          const parts = m.content
+            .filter((p: any) => p && (p.type === "text" || p.type === "image_url"))
+            .map((p: any) => {
+              if (p.type === "text") return { type: "text", text: String(p.text || "").slice(0, MAX_LEN) };
+              return { type: "image_url", image_url: { url: String(p.image_url?.url || "") } };
+            });
+          return { role: m.role, content: parts };
+        }
+        return { role: m.role, content: String(m.content).slice(0, MAX_LEN) };
+      });
     if (safeMessages.length === 0) {
       return new Response(
         JSON.stringify({ error: "Invalid request: no valid messages." }),
