@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, Camera, Brain, Globe, Telescope, FileUp } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, Camera, Brain, Globe, Telescope, FileUp, ThumbsUp, ThumbsDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,6 +38,7 @@ import {
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
+const MAX_PINNED = 10;
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const MAX_HISTORY = 30;
@@ -73,6 +74,9 @@ export default function Chat() {
   const [scrollPct, setScrollPct] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [plusOpen, setPlusOpen] = useState(false);
+  const [reactions, setReactions] = useState<Record<number, "up" | "down">>({});
+  const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{ name: string; dataUrl: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -244,6 +248,13 @@ export default function Chat() {
   };
 
   const togglePin = async (id: string, current: boolean) => {
+    if (!current) {
+      const pinnedCount = sessions.filter((s) => s.pinned).length;
+      if (pinnedCount >= MAX_PINNED) {
+        toast({ title: "Pin limit reached", description: `You can pin up to ${MAX_PINNED} chats.`, variant: "destructive" });
+        return;
+      }
+    }
     await supabase.from("chat_sessions").update({ pinned: !current }).eq("id", id);
     await loadSessions();
   };
@@ -266,7 +277,7 @@ export default function Chat() {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  // Image / PDF / camera upload — convert to text the AI can use.
+  // Image / PDF / camera upload — extract real content the AI can use.
   const handleFile = async (file: File | null, hint: string) => {
     setPlusOpen(false);
     if (!file) return;
@@ -274,21 +285,51 @@ export default function Chat() {
       toast({ title: "File too large", description: "Please upload files under 10MB.", variant: "destructive" });
       return;
     }
+    // ----- IMAGE: attach as data URL for vision -----
     if (file.type.startsWith("image/")) {
-      // For images, send a description-request prompt; vision will be handled by backend in a future pass.
-      const reader = new FileReader();
-      reader.onload = () => {
-        toast({ title: "Image attached", description: `${file.name} ready. Type your question.` });
-        setInput((prev) => `${hint}: ${file.name}. ` + prev);
-        setTimeout(() => inputRef.current?.focus(), 0);
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      setAttachedImage({ name: file.name, dataUrl });
+      toast({ title: "Image attached", description: `${file.name} — type your question and send.` });
+      setTimeout(() => inputRef.current?.focus(), 0);
       return;
     }
-    // For PDF / text, read as text and append
-    if (file.type === "application/pdf" || file.type.startsWith("text/")) {
+    // ----- PDF: extract real text via pdfjs -----
+    if (file.type === "application/pdf") {
+      try {
+        toast({ title: "Reading PDF...", description: "Extracting text, please wait." });
+        const pdfjs = await import("pdfjs-dist");
+        // Use the worker bundled with pdfjs-dist
+        const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+        (pdfjs as any).GlobalWorkerOptions.workerSrc = workerUrl;
+        const arrayBuf = await file.arrayBuffer();
+        const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
+        let full = "";
+        const maxPages = Math.min(pdf.numPages, 30);
+        for (let p = 1; p <= maxPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          const txt = content.items.map((it: any) => it.str).join(" ");
+          full += `\n--- Page ${p} ---\n${txt}`;
+        }
+        const snippet = full.slice(0, 12000);
+        setInput((prev) => `Based on this PDF "${file.name}" (${pdf.numPages} pages):\n${snippet}\n\nMy question: ` + prev);
+        toast({ title: "PDF ready", description: `Read ${maxPages} of ${pdf.numPages} page(s).` });
+        setTimeout(() => inputRef.current?.focus(), 0);
+      } catch (err) {
+        console.error("PDF parse error:", err);
+        toast({ title: "Could not read PDF", description: "The file may be scanned or password-protected.", variant: "destructive" });
+      }
+      return;
+    }
+    // ----- Text/DOC fallback -----
+    if (file.type.startsWith("text/") || /\.(txt|md|csv|json|log)$/i.test(file.name)) {
       const text = await file.text().catch(() => "");
-      const snippet = text.slice(0, 3000);
+      const snippet = text.slice(0, 8000);
       setInput((prev) => `Based on this document "${file.name}":\n${snippet}\n\nMy question: ` + prev);
       toast({ title: "Document attached", description: `${file.name} added to your prompt.` });
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -470,8 +511,24 @@ export default function Chat() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: newMessages, mode }),
+        body: JSON.stringify({
+          messages: attachedImage
+            ? [
+                ...newMessages.slice(0, -1),
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: text.trim() || `Describe this image: ${attachedImage.name}` },
+                    { type: "image_url", image_url: { url: attachedImage.dataUrl } },
+                  ],
+                },
+              ]
+            : newMessages,
+          mode,
+        }),
       });
+      // Image is single-shot — clear after sending so it doesn't get re-sent.
+      if (attachedImage) setAttachedImage(null);
 
       if (!resp.ok || !resp.body) {
         const errMsg =
@@ -849,6 +906,25 @@ export default function Chat() {
                     ))}
                   </div>
                 </div>
+                <button
+                  disabled={messages.length === 0}
+                  onClick={() => {
+                    const title = activeSession ? sessions.find((s) => s.id === activeSession)?.title || "chat" : "chat";
+                    const md = messages
+                      .map((m) => `### ${m.role === "user" ? "You" : "Assistant"}\n\n${m.content}\n`)
+                      .join("\n---\n\n");
+                    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${title.replace(/[^a-z0-9]+/gi, "_")}.md`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="w-full inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="h-4 w-4" /> Export chat (.md)
+                </button>
               </div>
             </PopoverContent>
           </Popover>
@@ -1051,6 +1127,40 @@ export default function Chat() {
                               >
                                 <Share2 className="h-3 w-3" /> Share
                               </button>
+                              <button
+                                onClick={() => {
+                                  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+                                  if (speakingIdx === i) {
+                                    window.speechSynthesis.cancel();
+                                    setSpeakingIdx(null);
+                                    return;
+                                  }
+                                  window.speechSynthesis.cancel();
+                                  const u = new SpeechSynthesisUtterance(msg.content.replace(/[*_`#>[\]()]/g, "").slice(0, 800));
+                                  u.onend = () => setSpeakingIdx((cur) => (cur === i ? null : cur));
+                                  u.onerror = () => setSpeakingIdx((cur) => (cur === i ? null : cur));
+                                  window.speechSynthesis.speak(u);
+                                  setSpeakingIdx(i);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                title={speakingIdx === i ? "Stop" : "Read aloud"}
+                              >
+                                {speakingIdx === i ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                              </button>
+                              <button
+                                onClick={() => setReactions((r) => ({ ...r, [i]: r[i] === "up" ? undefined as any : "up" }))}
+                                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors ${reactions[i] === "up" ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                                title="Helpful"
+                              >
+                                <ThumbsUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => setReactions((r) => ({ ...r, [i]: r[i] === "down" ? undefined as any : "down" }))}
+                                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors ${reactions[i] === "down" ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                                title="Not helpful"
+                              >
+                                <ThumbsDown className="h-3 w-3" />
+                              </button>
                             </div>
                           )}
                         </>
@@ -1101,7 +1211,20 @@ export default function Chat() {
 
         {/* Input */}
         <div className="border-t bg-background p-4">
-          <div className="mx-auto flex max-w-3xl items-center gap-2">
+          <div className="mx-auto max-w-3xl">
+            {attachedImage && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border bg-secondary/40 p-2 text-xs">
+                <img src={attachedImage.dataUrl} alt={attachedImage.name} className="h-10 w-10 rounded object-cover" />
+                <div className="flex-1 min-w-0">
+                  <p className="truncate font-medium">{attachedImage.name}</p>
+                  <p className="text-muted-foreground">Image will be sent with your next message</p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAttachedImage(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
             {/* Hidden inputs for + panel uploads */}
             <input
               ref={fileInputRef}
@@ -1195,6 +1318,7 @@ export default function Chat() {
             >
               <Send className="h-4 w-4" />
             </Button>
+          </div>
           </div>
         </div>
       </div>
