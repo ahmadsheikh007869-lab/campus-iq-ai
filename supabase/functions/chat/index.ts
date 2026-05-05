@@ -348,8 +348,12 @@ serve(async (req) => {
           ? "\n\n🎚 MODE: CREATIVE — Be imaginative, use analogies, vivid examples, and engaging storytelling while staying accurate."
           : "\n\n🎚 MODE: EXPERT — Provide thorough, well-structured, in-depth answers with examples, headings, and tables when useful.";
 
-    const lastUserMsg =
-      [...safeMessages].reverse().find((m: any) => m.role === "user")?.content || "";
+    const lastUserRaw = [...safeMessages].reverse().find((m: any) => m.role === "user")?.content;
+    const lastUserMsg = typeof lastUserRaw === "string"
+      ? lastUserRaw
+      : Array.isArray(lastUserRaw)
+        ? lastUserRaw.filter((p: any) => p?.type === "text").map((p: any) => p.text).join(" ")
+        : "";
 
     // Check identity rules first
     const identityResponse = checkIdentityRule(lastUserMsg);
