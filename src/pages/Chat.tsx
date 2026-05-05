@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, Camera, Brain, Globe, Telescope, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
@@ -29,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type Message = { role: "user" | "assistant"; content: string };
-type Session = { id: string; title: string; created_at: string };
+type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -64,11 +71,15 @@ export default function Chat() {
   const [mode, setMode] = useState<ChatMode>(() => (localStorage.getItem("iu_chat_mode") as ChatMode) || "expert");
   const [readAloud, setReadAloud] = useState<boolean>(() => localStorage.getItem("iu_read_aloud") === "1");
   const [scrollPct, setScrollPct] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [plusOpen, setPlusOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const lastSpokenRef = useRef<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Persist mode + read-aloud
   useEffect(() => { localStorage.setItem("iu_chat_mode", mode); }, [mode]);
@@ -142,8 +153,9 @@ export default function Chat() {
     const { data } = await supabase
       .from("chat_sessions")
       .select("*")
+      .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false });
-    if (data) setSessions(data);
+    if (data) setSessions(data as Session[]);
   };
 
   const loadMessages = async (sessionId: string) => {
@@ -229,6 +241,76 @@ export default function Chat() {
     await supabase.from("chat_sessions").update({ title: editTitle.trim() }).eq("id", id);
     setEditingId(null);
     await loadSessions();
+  };
+
+  const togglePin = async (id: string, current: boolean) => {
+    await supabase.from("chat_sessions").update({ pinned: !current }).eq("id", id);
+    await loadSessions();
+  };
+
+  // Filter sessions by search; pinned still listed first because loadSessions ordered them.
+  const visibleSessions = sessions.filter((s) =>
+    !searchQuery.trim() || s.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Quick actions for the + tool panel: prefill the input with a directive prompt.
+  const handlePlusAction = (kind: "think" | "research" | "web") => {
+    setPlusOpen(false);
+    const prefix =
+      kind === "think"
+        ? "[Thinking mode — reason step by step before answering] "
+        : kind === "research"
+          ? "[Deep research — be thorough, cite reasoning, give detailed structured answer] "
+          : "[Web-style answer — give the most current general knowledge you have] ";
+    setInput((prev) => prefix + prev);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  // Image / PDF / camera upload — convert to text the AI can use.
+  const handleFile = async (file: File | null, hint: string) => {
+    setPlusOpen(false);
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please upload files under 10MB.", variant: "destructive" });
+      return;
+    }
+    if (file.type.startsWith("image/")) {
+      // For images, send a description-request prompt; vision will be handled by backend in a future pass.
+      const reader = new FileReader();
+      reader.onload = () => {
+        toast({ title: "Image attached", description: `${file.name} ready. Type your question.` });
+        setInput((prev) => `${hint}: ${file.name}. ` + prev);
+        setTimeout(() => inputRef.current?.focus(), 0);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    // For PDF / text, read as text and append
+    if (file.type === "application/pdf" || file.type.startsWith("text/")) {
+      const text = await file.text().catch(() => "");
+      const snippet = text.slice(0, 3000);
+      setInput((prev) => `Based on this document "${file.name}":\n${snippet}\n\nMy question: ` + prev);
+      toast({ title: "Document attached", description: `${file.name} added to your prompt.` });
+      setTimeout(() => inputRef.current?.focus(), 0);
+      return;
+    }
+    toast({ title: "Unsupported file", description: "Try an image, PDF, or text file." });
+  };
+
+  // Re-ask the last user question with a length directive: short or detailed.
+  const reaskWithStyle = async (style: "short" | "explain") => {
+    if (loading || messages.length < 2) return;
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx === -1) return;
+    const lastUserText = messages[lastUserIdx].content;
+    const directive =
+      style === "short"
+        ? `Answer in 2-3 lines only — concise summary. Question: ${lastUserText}`
+        : `Explain in detail with steps, examples and depth. Question: ${lastUserText}`;
+    await sendMessage(directive);
   };
 
   const editMessage = async (msgIdx: number) => {
@@ -595,7 +677,17 @@ export default function Chat() {
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
-                {sessions.map((s) => {
+                {/* Search */}
+                <div className="relative mb-2">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search chats..."
+                    className="h-8 pl-7 text-xs"
+                  />
+                </div>
+                {visibleSessions.map((s) => {
                   const showActions = tappedSession === s.id;
                   return (
                     <div
@@ -621,6 +713,8 @@ export default function Chat() {
                             <Square className="h-4 w-4" />
                           )}
                         </button>
+                      ) : s.pinned ? (
+                        <Pin className="h-4 w-4 shrink-0 text-primary" />
                       ) : (
                         <MessageSquare className="h-4 w-4 shrink-0" />
                       )}
@@ -647,6 +741,13 @@ export default function Chat() {
                             <p className="text-xs text-muted-foreground/60">{formatTime(s.created_at)}</p>
                           </div>
                           <div className={`flex gap-0.5 transition-all duration-200 ${showActions ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}`}>
+                            <Button
+                              variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); togglePin(s.id, !!s.pinned); }}
+                              title={s.pinned ? "Unpin" : "Pin"}
+                            >
+                              {s.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                            </Button>
                             <Button
                               variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 transition-colors"
                               onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title); }}
@@ -681,7 +782,7 @@ export default function Chat() {
                     </div>
                   );
                 })}
-                {sessions.length === 0 && (
+                {visibleSessions.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">No chats yet</p>
                 )}
               </div>
@@ -694,11 +795,6 @@ export default function Chat() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <div className="relative flex items-center gap-2 border-b px-4 py-2">
-          {!sidebarOpen && (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
-              <PanelLeft className="h-4 w-4" />
-            </Button>
-          )}
           <div className="flex-1">
             <h1 className="text-sm font-semibold">
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
@@ -756,11 +852,34 @@ export default function Chat() {
               </div>
             </PopoverContent>
           </Popover>
-          {activeSession && (
-            <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
-              <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
-            </Button>
-          )}
+          {/* 3-dot menu: chat history + new chat + clear */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="More">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setSidebarOpen(true)}>
+                <History className="h-4 w-4 mr-2" /> Chat history
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={createNewChat}>
+                <Plus className="h-4 w-4 mr-2" /> New chat
+              </DropdownMenuItem>
+              {sessions.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(e) => { e.preventDefault(); }}
+                    onClick={clearAllChats}
+                  >
+                    <Trash className="h-4 w-4 mr-2" /> Clear all chats
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {/* Scroll progress bar */}
           <div
             className="absolute left-0 bottom-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transition-[width] duration-150"
@@ -898,14 +1017,32 @@ export default function Chat() {
                                 <Copy className="h-3 w-3" /> Copy
                               </button>
                               {i === messages.length - 1 && (
-                                <button
-                                  onClick={regenerateLast}
-                                  disabled={loading}
-                                  className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-                                  title="Regenerate"
-                                >
-                                  <RotateCcw className="h-3 w-3" /> Regenerate
-                                </button>
+                                <>
+                                  <button
+                                    onClick={regenerateLast}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+                                    title="Regenerate"
+                                  >
+                                    <RotateCcw className="h-3 w-3" /> Regenerate
+                                  </button>
+                                  <button
+                                    onClick={() => reaskWithStyle("explain")}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                                    title="Detailed answer"
+                                  >
+                                    📖 Explain
+                                  </button>
+                                  <button
+                                    onClick={() => reaskWithStyle("short")}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                                    title="Short answer"
+                                  >
+                                    ⚡ Short
+                                  </button>
+                                </>
                               )}
                               <button
                                 onClick={() => shareMessage(msg.content)}
@@ -938,18 +1075,21 @@ export default function Chat() {
                   const ideas = generateFollowUps(lastUser, messages[messages.length - 1].content);
                   if (ideas.length === 0) return null;
                   return (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {ideas.map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => sendMessage(q)}
-                          onMouseMove={handleGlowMove}
-                          onMouseDown={triggerRipple}
-                          className="ripple-btn glow-follow hover-lift rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          ✨ {q}
-                        </button>
-                      ))}
+                    <div className="pt-2">
+                      <p className="text-xs text-muted-foreground mb-2">You might also ask:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {ideas.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => sendMessage(q)}
+                            onMouseMove={handleGlowMove}
+                            onMouseDown={triggerRipple}
+                            className="ripple-btn glow-follow hover-lift rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            ➤ {q}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   );
                 })()}
@@ -962,6 +1102,75 @@ export default function Chat() {
         {/* Input */}
         <div className="border-t bg-background p-4">
           <div className="mx-auto flex max-w-3xl items-center gap-2">
+            {/* Hidden inputs for + panel uploads */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,text/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null, "Attached file")}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null, "Camera photo")}
+            />
+            {/* + Tool panel */}
+            <Popover open={plusOpen} onOpenChange={setPlusOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 transition-transform data-[state=open]:rotate-45"
+                  title="Tools"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-64 p-2">
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    onClick={() => { setPlusOpen(false); cameraInputRef.current?.click(); }}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Camera className="h-5 w-5 text-primary" /> Camera
+                  </button>
+                  <button
+                    onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <ImageIcon className="h-5 w-5 text-primary" /> Image
+                  </button>
+                  <button
+                    onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <FileUp className="h-5 w-5 text-primary" /> File
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("think")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Brain className="h-5 w-5 text-primary" /> Thinking
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("research")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Telescope className="h-5 w-5 text-primary" /> Research
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("web")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Globe className="h-5 w-5 text-primary" /> Web
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button variant="ghost" size="icon" onClick={toggleVoice} className={listening ? "text-destructive" : ""}>
               {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
@@ -973,6 +1182,9 @@ export default function Chat() {
               placeholder="Ask anything..."
               className="flex-1"
               disabled={loading}
+              spellCheck
+              autoCorrect="on"
+              autoCapitalize="sentences"
             />
             <Button
               size="icon"
