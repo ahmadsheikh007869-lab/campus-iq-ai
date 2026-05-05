@@ -26,7 +26,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <div className="flex min-h-screen flex-col">
-          <Navbar />
+          <Routes>
+            <Route path="/chat" element={null} />
+            <Route path="*" element={<Navbar />} />
+          </Routes>
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<Index />} />
