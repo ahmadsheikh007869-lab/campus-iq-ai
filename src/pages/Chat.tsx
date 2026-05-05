@@ -677,7 +677,17 @@ export default function Chat() {
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
-                {sessions.map((s) => {
+                {/* Search */}
+                <div className="relative mb-2">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search chats..."
+                    className="h-8 pl-7 text-xs"
+                  />
+                </div>
+                {visibleSessions.map((s) => {
                   const showActions = tappedSession === s.id;
                   return (
                     <div
@@ -703,6 +713,8 @@ export default function Chat() {
                             <Square className="h-4 w-4" />
                           )}
                         </button>
+                      ) : s.pinned ? (
+                        <Pin className="h-4 w-4 shrink-0 text-primary" />
                       ) : (
                         <MessageSquare className="h-4 w-4 shrink-0" />
                       )}
@@ -729,6 +741,13 @@ export default function Chat() {
                             <p className="text-xs text-muted-foreground/60">{formatTime(s.created_at)}</p>
                           </div>
                           <div className={`flex gap-0.5 transition-all duration-200 ${showActions ? "opacity-100 scale-100" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100"}`}>
+                            <Button
+                              variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); togglePin(s.id, !!s.pinned); }}
+                              title={s.pinned ? "Unpin" : "Pin"}
+                            >
+                              {s.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                            </Button>
                             <Button
                               variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 transition-colors"
                               onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title); }}
@@ -763,7 +782,7 @@ export default function Chat() {
                     </div>
                   );
                 })}
-                {sessions.length === 0 && (
+                {visibleSessions.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">No chats yet</p>
                 )}
               </div>
