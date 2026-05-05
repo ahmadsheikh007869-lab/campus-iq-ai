@@ -248,6 +248,13 @@ export default function Chat() {
   };
 
   const togglePin = async (id: string, current: boolean) => {
+    if (!current) {
+      const pinnedCount = sessions.filter((s) => s.pinned).length;
+      if (pinnedCount >= MAX_PINNED) {
+        toast({ title: "Pin limit reached", description: `You can pin up to ${MAX_PINNED} chats.`, variant: "destructive" });
+        return;
+      }
+    }
     await supabase.from("chat_sessions").update({ pinned: !current }).eq("id", id);
     await loadSessions();
   };
@@ -270,7 +277,7 @@ export default function Chat() {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  // Image / PDF / camera upload — convert to text the AI can use.
+  // Image / PDF / camera upload — extract real content the AI can use.
   const handleFile = async (file: File | null, hint: string) => {
     setPlusOpen(false);
     if (!file) return;
@@ -278,21 +285,51 @@ export default function Chat() {
       toast({ title: "File too large", description: "Please upload files under 10MB.", variant: "destructive" });
       return;
     }
+    // ----- IMAGE: attach as data URL for vision -----
     if (file.type.startsWith("image/")) {
-      // For images, send a description-request prompt; vision will be handled by backend in a future pass.
-      const reader = new FileReader();
-      reader.onload = () => {
-        toast({ title: "Image attached", description: `${file.name} ready. Type your question.` });
-        setInput((prev) => `${hint}: ${file.name}. ` + prev);
-        setTimeout(() => inputRef.current?.focus(), 0);
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      setAttachedImage({ name: file.name, dataUrl });
+      toast({ title: "Image attached", description: `${file.name} — type your question and send.` });
+      setTimeout(() => inputRef.current?.focus(), 0);
       return;
     }
-    // For PDF / text, read as text and append
-    if (file.type === "application/pdf" || file.type.startsWith("text/")) {
+    // ----- PDF: extract real text via pdfjs -----
+    if (file.type === "application/pdf") {
+      try {
+        toast({ title: "Reading PDF...", description: "Extracting text, please wait." });
+        const pdfjs = await import("pdfjs-dist");
+        // Use the worker bundled with pdfjs-dist
+        const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+        (pdfjs as any).GlobalWorkerOptions.workerSrc = workerUrl;
+        const arrayBuf = await file.arrayBuffer();
+        const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
+        let full = "";
+        const maxPages = Math.min(pdf.numPages, 30);
+        for (let p = 1; p <= maxPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          const txt = content.items.map((it: any) => it.str).join(" ");
+          full += `\n--- Page ${p} ---\n${txt}`;
+        }
+        const snippet = full.slice(0, 12000);
+        setInput((prev) => `Based on this PDF "${file.name}" (${pdf.numPages} pages):\n${snippet}\n\nMy question: ` + prev);
+        toast({ title: "PDF ready", description: `Read ${maxPages} of ${pdf.numPages} page(s).` });
+        setTimeout(() => inputRef.current?.focus(), 0);
+      } catch (err) {
+        console.error("PDF parse error:", err);
+        toast({ title: "Could not read PDF", description: "The file may be scanned or password-protected.", variant: "destructive" });
+      }
+      return;
+    }
+    // ----- Text/DOC fallback -----
+    if (file.type.startsWith("text/") || /\.(txt|md|csv|json|log)$/i.test(file.name)) {
       const text = await file.text().catch(() => "");
-      const snippet = text.slice(0, 3000);
+      const snippet = text.slice(0, 8000);
       setInput((prev) => `Based on this document "${file.name}":\n${snippet}\n\nMy question: ` + prev);
       toast({ title: "Document attached", description: `${file.name} added to your prompt.` });
       setTimeout(() => inputRef.current?.focus(), 0);
