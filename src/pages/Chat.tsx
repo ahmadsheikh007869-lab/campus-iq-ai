@@ -1211,7 +1211,20 @@ export default function Chat() {
 
         {/* Input */}
         <div className="border-t bg-background p-4">
-          <div className="mx-auto flex max-w-3xl items-center gap-2">
+          <div className="mx-auto max-w-3xl">
+            {attachedImage && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border bg-secondary/40 p-2 text-xs">
+                <img src={attachedImage.dataUrl} alt={attachedImage.name} className="h-10 w-10 rounded object-cover" />
+                <div className="flex-1 min-w-0">
+                  <p className="truncate font-medium">{attachedImage.name}</p>
+                  <p className="text-muted-foreground">Image will be sent with your next message</p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAttachedImage(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
             {/* Hidden inputs for + panel uploads */}
             <input
               ref={fileInputRef}
