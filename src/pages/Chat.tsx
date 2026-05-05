@@ -511,8 +511,24 @@ export default function Chat() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: newMessages, mode }),
+        body: JSON.stringify({
+          messages: attachedImage
+            ? [
+                ...newMessages.slice(0, -1),
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: text.trim() || `Describe this image: ${attachedImage.name}` },
+                    { type: "image_url", image_url: { url: attachedImage.dataUrl } },
+                  ],
+                },
+              ]
+            : newMessages,
+          mode,
+        }),
       });
+      // Image is single-shot — clear after sending so it doesn't get re-sent.
+      if (attachedImage) setAttachedImage(null);
 
       if (!resp.ok || !resp.body) {
         const errMsg =
