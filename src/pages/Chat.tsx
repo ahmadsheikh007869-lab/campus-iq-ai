@@ -1108,6 +1108,40 @@ export default function Chat() {
                               >
                                 <Share2 className="h-3 w-3" /> Share
                               </button>
+                              <button
+                                onClick={() => {
+                                  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+                                  if (speakingIdx === i) {
+                                    window.speechSynthesis.cancel();
+                                    setSpeakingIdx(null);
+                                    return;
+                                  }
+                                  window.speechSynthesis.cancel();
+                                  const u = new SpeechSynthesisUtterance(msg.content.replace(/[*_`#>[\]()]/g, "").slice(0, 800));
+                                  u.onend = () => setSpeakingIdx((cur) => (cur === i ? null : cur));
+                                  u.onerror = () => setSpeakingIdx((cur) => (cur === i ? null : cur));
+                                  window.speechSynthesis.speak(u);
+                                  setSpeakingIdx(i);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                title={speakingIdx === i ? "Stop" : "Read aloud"}
+                              >
+                                {speakingIdx === i ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                              </button>
+                              <button
+                                onClick={() => setReactions((r) => ({ ...r, [i]: r[i] === "up" ? undefined as any : "up" }))}
+                                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors ${reactions[i] === "up" ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                                title="Helpful"
+                              >
+                                <ThumbsUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => setReactions((r) => ({ ...r, [i]: r[i] === "down" ? undefined as any : "down" }))}
+                                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors ${reactions[i] === "down" ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                                title="Not helpful"
+                              >
+                                <ThumbsDown className="h-3 w-3" />
+                              </button>
                             </div>
                           )}
                         </>
