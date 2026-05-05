@@ -906,6 +906,25 @@ export default function Chat() {
                     ))}
                   </div>
                 </div>
+                <button
+                  disabled={messages.length === 0}
+                  onClick={() => {
+                    const title = activeSession ? sessions.find((s) => s.id === activeSession)?.title || "chat" : "chat";
+                    const md = messages
+                      .map((m) => `### ${m.role === "user" ? "You" : "Assistant"}\n\n${m.content}\n`)
+                      .join("\n---\n\n");
+                    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${title.replace(/[^a-z0-9]+/gi, "_")}.md`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="w-full inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="h-4 w-4" /> Export chat (.md)
+                </button>
               </div>
             </PopoverContent>
           </Popover>
