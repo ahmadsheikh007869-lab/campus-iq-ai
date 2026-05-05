@@ -1017,14 +1017,32 @@ export default function Chat() {
                                 <Copy className="h-3 w-3" /> Copy
                               </button>
                               {i === messages.length - 1 && (
-                                <button
-                                  onClick={regenerateLast}
-                                  disabled={loading}
-                                  className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-                                  title="Regenerate"
-                                >
-                                  <RotateCcw className="h-3 w-3" /> Regenerate
-                                </button>
+                                <>
+                                  <button
+                                    onClick={regenerateLast}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+                                    title="Regenerate"
+                                  >
+                                    <RotateCcw className="h-3 w-3" /> Regenerate
+                                  </button>
+                                  <button
+                                    onClick={() => reaskWithStyle("explain")}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                                    title="Detailed answer"
+                                  >
+                                    📖 Explain
+                                  </button>
+                                  <button
+                                    onClick={() => reaskWithStyle("short")}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                                    title="Short answer"
+                                  >
+                                    ⚡ Short
+                                  </button>
+                                </>
                               )}
                               <button
                                 onClick={() => shareMessage(msg.content)}
@@ -1057,18 +1075,21 @@ export default function Chat() {
                   const ideas = generateFollowUps(lastUser, messages[messages.length - 1].content);
                   if (ideas.length === 0) return null;
                   return (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {ideas.map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => sendMessage(q)}
-                          onMouseMove={handleGlowMove}
-                          onMouseDown={triggerRipple}
-                          className="ripple-btn glow-follow hover-lift rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          ✨ {q}
-                        </button>
-                      ))}
+                    <div className="pt-2">
+                      <p className="text-xs text-muted-foreground mb-2">You might also ask:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {ideas.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => sendMessage(q)}
+                            onMouseMove={handleGlowMove}
+                            onMouseDown={triggerRipple}
+                            className="ripple-btn glow-follow hover-lift rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            ➤ {q}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   );
                 })()}
