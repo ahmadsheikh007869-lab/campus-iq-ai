@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, FileText, Camera, Brain, Globe, Telescope, FileUp } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, Camera, Brain, Globe, Telescope, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
