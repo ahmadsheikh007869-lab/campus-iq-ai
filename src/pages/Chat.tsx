@@ -153,8 +153,9 @@ export default function Chat() {
     const { data } = await supabase
       .from("chat_sessions")
       .select("*")
+      .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false });
-    if (data) setSessions(data);
+    if (data) setSessions(data as Session[]);
   };
 
   const loadMessages = async (sessionId: string) => {
@@ -240,6 +241,76 @@ export default function Chat() {
     await supabase.from("chat_sessions").update({ title: editTitle.trim() }).eq("id", id);
     setEditingId(null);
     await loadSessions();
+  };
+
+  const togglePin = async (id: string, current: boolean) => {
+    await supabase.from("chat_sessions").update({ pinned: !current }).eq("id", id);
+    await loadSessions();
+  };
+
+  // Filter sessions by search; pinned still listed first because loadSessions ordered them.
+  const visibleSessions = sessions.filter((s) =>
+    !searchQuery.trim() || s.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Quick actions for the + tool panel: prefill the input with a directive prompt.
+  const handlePlusAction = (kind: "think" | "research" | "web") => {
+    setPlusOpen(false);
+    const prefix =
+      kind === "think"
+        ? "[Thinking mode — reason step by step before answering] "
+        : kind === "research"
+          ? "[Deep research — be thorough, cite reasoning, give detailed structured answer] "
+          : "[Web-style answer — give the most current general knowledge you have] ";
+    setInput((prev) => prefix + prev);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  // Image / PDF / camera upload — convert to text the AI can use.
+  const handleFile = async (file: File | null, hint: string) => {
+    setPlusOpen(false);
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please upload files under 10MB.", variant: "destructive" });
+      return;
+    }
+    if (file.type.startsWith("image/")) {
+      // For images, send a description-request prompt; vision will be handled by backend in a future pass.
+      const reader = new FileReader();
+      reader.onload = () => {
+        toast({ title: "Image attached", description: `${file.name} ready. Type your question.` });
+        setInput((prev) => `${hint}: ${file.name}. ` + prev);
+        setTimeout(() => inputRef.current?.focus(), 0);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    // For PDF / text, read as text and append
+    if (file.type === "application/pdf" || file.type.startsWith("text/")) {
+      const text = await file.text().catch(() => "");
+      const snippet = text.slice(0, 3000);
+      setInput((prev) => `Based on this document "${file.name}":\n${snippet}\n\nMy question: ` + prev);
+      toast({ title: "Document attached", description: `${file.name} added to your prompt.` });
+      setTimeout(() => inputRef.current?.focus(), 0);
+      return;
+    }
+    toast({ title: "Unsupported file", description: "Try an image, PDF, or text file." });
+  };
+
+  // Re-ask the last user question with a length directive: short or detailed.
+  const reaskWithStyle = async (style: "short" | "explain") => {
+    if (loading || messages.length < 2) return;
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx === -1) return;
+    const lastUserText = messages[lastUserIdx].content;
+    const directive =
+      style === "short"
+        ? `Answer in 2-3 lines only — concise summary. Question: ${lastUserText}`
+        : `Explain in detail with steps, examples and depth. Question: ${lastUserText}`;
+    await sendMessage(directive);
   };
 
   const editMessage = async (msgIdx: number) => {
