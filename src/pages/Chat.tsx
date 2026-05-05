@@ -776,11 +776,6 @@ export default function Chat() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <div className="relative flex items-center gap-2 border-b px-4 py-2">
-          {!sidebarOpen && (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
-              <PanelLeft className="h-4 w-4" />
-            </Button>
-          )}
           <div className="flex-1">
             <h1 className="text-sm font-semibold">
               {activeSession ? sessions.find((s) => s.id === activeSession)?.title || "Chat" : "Integral University AI Assistant"}
@@ -838,11 +833,34 @@ export default function Chat() {
               </div>
             </PopoverContent>
           </Popover>
-          {activeSession && (
-            <Button variant="ghost" size="sm" onClick={createNewChat} className="text-xs">
-              <Plus className="h-3.5 w-3.5 mr-1" /> New Chat
-            </Button>
-          )}
+          {/* 3-dot menu: chat history + new chat + clear */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="More">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setSidebarOpen(true)}>
+                <History className="h-4 w-4 mr-2" /> Chat history
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={createNewChat}>
+                <Plus className="h-4 w-4 mr-2" /> New chat
+              </DropdownMenuItem>
+              {sessions.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(e) => { e.preventDefault(); }}
+                    onClick={clearAllChats}
+                  >
+                    <Trash className="h-4 w-4 mr-2" /> Clear all chats
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {/* Scroll progress bar */}
           <div
             className="absolute left-0 bottom-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary transition-[width] duration-150"
