@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, Camera, Brain, Globe, Telescope, FileUp } from "lucide-react";
+import { Plus, Send, Mic, MicOff, Trash2, MessageSquare, PanelLeftClose, Pencil, Check, X, PenLine, Trash, CheckSquare, Square, Copy, RotateCcw, Share2, Settings, Volume2, VolumeX, Sparkles, MoreVertical, Pin, PinOff, Search, History, Image as ImageIcon, Camera, Brain, Globe, Telescope, FileUp, ThumbsUp, ThumbsDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,6 +38,7 @@ import {
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
+const MAX_PINNED = 10;
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const MAX_HISTORY = 30;
@@ -73,6 +74,9 @@ export default function Chat() {
   const [scrollPct, setScrollPct] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [plusOpen, setPlusOpen] = useState(false);
+  const [reactions, setReactions] = useState<Record<number, "up" | "down">>({});
+  const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{ name: string; dataUrl: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
