@@ -1102,6 +1102,75 @@ export default function Chat() {
         {/* Input */}
         <div className="border-t bg-background p-4">
           <div className="mx-auto flex max-w-3xl items-center gap-2">
+            {/* Hidden inputs for + panel uploads */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,text/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null, "Attached file")}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null, "Camera photo")}
+            />
+            {/* + Tool panel */}
+            <Popover open={plusOpen} onOpenChange={setPlusOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 transition-transform data-[state=open]:rotate-45"
+                  title="Tools"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-64 p-2">
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    onClick={() => { setPlusOpen(false); cameraInputRef.current?.click(); }}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Camera className="h-5 w-5 text-primary" /> Camera
+                  </button>
+                  <button
+                    onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <ImageIcon className="h-5 w-5 text-primary" /> Image
+                  </button>
+                  <button
+                    onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <FileUp className="h-5 w-5 text-primary" /> File
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("think")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Brain className="h-5 w-5 text-primary" /> Thinking
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("research")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Telescope className="h-5 w-5 text-primary" /> Research
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("web")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Globe className="h-5 w-5 text-primary" /> Web
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button variant="ghost" size="icon" onClick={toggleVoice} className={listening ? "text-destructive" : ""}>
               {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
@@ -1113,6 +1182,9 @@ export default function Chat() {
               placeholder="Ask anything..."
               className="flex-1"
               disabled={loading}
+              spellCheck
+              autoCorrect="on"
+              autoCapitalize="sentences"
             />
             <Button
               size="icon"
