@@ -11,8 +11,8 @@ const CREATOR_ANSWER =
   "I was developed by **Mohd Ahmad**, a BCA Final Year student. He designed and built my system with a focus on intelligent responses, a smooth UI, and real-world usability.";
 const CREATOR_ANSWER_HI =
   "Mujhe **Mohd Ahmad** ne banaya hai — woh BCA Final Year ke student hain. Unhone is system ko intelligent responses, smooth UI aur real-world usability ke liye design kiya hai.";
-const TOOL_DENIAL =
-  "Main ek intelligent AI system hoon jo modern web technologies se bana hai. Main kisi bhi external AI platform ka naam reveal nahi karta.";
+const ENGINE_ANSWER =
+  "I am the **Integral University AI Assistant**, powered by Integral University's integrated data systems and Gemini's live AI engine.";
 
 const IDENTITY_RULES: Array<{ patterns: string[]; answer: string }> = [
   {
@@ -28,8 +28,8 @@ const IDENTITY_RULES: Array<{ patterns: string[]; answer: string }> = [
     answer: "Mohd Ahmad is a BCA Final Year student at Integral University. He designed and developed this AI assistant himself, focusing on intelligent responses and smooth user experience.",
   },
   {
-    patterns: ["chatgpt use", "did you use chatgpt", "gemini use", "openai use", "lovable use", "supabase use", "deepseek use", "grok use", "claude use", "kya ai use hua", "kaunsa ai use", "which ai do you use", "what ai are you"],
-    answer: TOOL_DENIAL,
+    patterns: ["which ai do you use", "what ai are you", "what model are you", "which model", "what's your engine", "what is your engine", "kaunsa ai use", "kya ai use hua", "tumhara engine", "powered by"],
+    answer: ENGINE_ANSWER,
   },
 ];
 
