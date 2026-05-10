@@ -634,14 +634,33 @@ export default function Chat() {
   }, [messages, activeSession, loading, sendMessage]);
 
   const toggleVoice = () => {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) return;
+    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+      toast({ title: "Voice not supported", description: "Try Chrome or Edge for voice input.", variant: "destructive" });
+      return;
+    }
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const r = new SR();
-    r.lang = "en-US"; r.continuous = false; r.interimResults = false;
-    r.onresult = (e: any) => { setInput(e.results[0][0].transcript); setListening(false); };
+    r.lang = "en-US"; r.continuous = false; r.interimResults = true;
+    let finalText = "";
+    r.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += t;
+        else interim += t;
+      }
+      setInput((finalText + interim).trim());
+    };
     r.onerror = () => setListening(false);
-    r.onend = () => setListening(false);
+    r.onend = () => {
+      setListening(false);
+      const text = finalText.trim();
+      if (text) {
+        setInput("");
+        sendMessage(text);
+      }
+    };
     recognitionRef.current = r; r.start(); setListening(true);
   };
 
