@@ -618,7 +618,7 @@ export default function Chat() {
       setMessages([...newMessages, { role: "assistant", content: "Something went wrong. Please try again." }]);
     }
     setLoading(false);
-  }, [activeSession, messages, loading, mode]);
+  }, [activeSession, messages, loading, mode, tool, attachedImage]);
 
   // Regenerate the last assistant reply by re-sending the prior user message.
   const regenerateLast = useCallback(async () => {
