@@ -38,13 +38,16 @@ import {
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
-type Tool = "think" | "research" | "web" | "aiplus" | "pro";
+type Tool = "think" | "research" | "web" | "aiplus" | "pro" | "ultrafast" | "fast" | "medium";
 const TOOL_META: Record<Tool, { label: string; icon: string; directive: string }> = {
-  think:    { label: "Thinking", icon: "🧠", directive: "[THINKING MODE] Reason step-by-step internally before answering. Provide a deep, multi-step, well-structured analysis." },
-  research: { label: "Research", icon: "🔭", directive: "[RESEARCH MODE] Provide a long, deeply-researched, structured answer with sections, key facts, and source-style citations where possible." },
-  web:      { label: "Web",      icon: "🌐", directive: "[WEB SEARCH MODE] Answer using the most current general knowledge you have. Prefer recent facts. Include relevant external links inline as clickable markdown." },
-  aiplus:   { label: "AI Plus",  icon: "✨", directive: "[AI PLUS MODE] Faster, smarter, more creative response. Premium writing tone — engaging, polished, concise but rich." },
-  pro:      { label: "Pro",      icon: "⚡", directive: "[PRO MODE] Use highest intelligence. Handle code, math, and advanced analysis rigorously. Long, expert-grade answer." },
+  think:     { label: "Thinking",   icon: "🧠", directive: "[THINKING MODE] Reason step-by-step internally before answering. Provide a deep, multi-step, well-structured analysis." },
+  research:  { label: "Research",   icon: "🔭", directive: "[RESEARCH MODE] Provide a long, deeply-researched, structured answer with sections, key facts, and source-style citations where possible." },
+  web:       { label: "Web",        icon: "🌐", directive: "[WEB SEARCH MODE] Answer using the most current general knowledge you have. Prefer recent facts. Include relevant external links inline as clickable markdown." },
+  aiplus:    { label: "AI Plus",    icon: "✨", directive: "[AI PLUS MODE] Faster, smarter, more creative response. Premium writing tone — engaging, polished, concise but rich." },
+  pro:       { label: "Pro",        icon: "⚡", directive: "[PRO MODE] Use highest intelligence. Handle code, math, and advanced analysis rigorously. Long, expert-grade answer." },
+  ultrafast: { label: "Ultra Fast", icon: "🚀", directive: "[ULTRA FAST MODE] Reply in 1-3 short lines. No preamble, no headings, no lists. Lowest possible latency. Just the direct answer." },
+  fast:      { label: "Fast",       icon: "💨", directive: "[FAST MODE] Quick everyday reply. Keep it under ~6 short lines. Skip filler. Decent quality, no deep analysis." },
+  medium:    { label: "Medium",     icon: "⚖️", directive: "[MEDIUM MODE] Balanced response — clear, structured, moderately detailed. Use short paragraphs or a small list when helpful." },
 };
 const MAX_PINNED = 10;
 
@@ -1331,6 +1334,24 @@ export default function Chat() {
                   >
                     <span className="text-lg leading-none text-primary">⚡</span> Pro
                   </button>
+                  <button
+                    onClick={() => handlePlusAction("ultrafast")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">🚀</span> Ultra Fast
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("fast")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">💨</span> Fast
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("medium")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">⚖️</span> Medium
+                  </button>
                 </div>
               </PopoverContent>
             </Popover>
@@ -1338,7 +1359,7 @@ export default function Chat() {
               <button
                 onClick={() => setTool(null)}
                 title={`${TOOL_META[tool].label} mode active — click to clear`}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] animate-fade-in hover:bg-primary/15 transition-colors"
+                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/50 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary animate-fade-in hover:bg-primary/15 transition-all mode-badge-glow"
               >
                 <span>{TOOL_META[tool].icon}</span>
                 <span>{TOOL_META[tool].label}</span>
