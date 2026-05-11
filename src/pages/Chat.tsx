@@ -508,6 +508,22 @@ export default function Chat() {
     }
 
     try {
+      // Build the outgoing message list — silently prepend the active tool directive
+      // to the last user message so the bubble stays clean but the AI gets the mode hint.
+      const directive = tool ? TOOL_META[tool].directive + "\n\n" : "";
+      const outgoingText = directive + text.trim();
+      const outgoingMessages = attachedImage
+        ? [
+            ...newMessages.slice(0, -1),
+            {
+              role: "user",
+              content: [
+                { type: "text", text: outgoingText || `Describe this image: ${attachedImage.name}` },
+                { type: "image_url", image_url: { url: attachedImage.dataUrl } },
+              ],
+            },
+          ]
+        : [...newMessages.slice(0, -1), { role: "user", content: outgoingText }];
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -515,19 +531,9 @@ export default function Chat() {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: attachedImage
-            ? [
-                ...newMessages.slice(0, -1),
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: text.trim() || `Describe this image: ${attachedImage.name}` },
-                    { type: "image_url", image_url: { url: attachedImage.dataUrl } },
-                  ],
-                },
-              ]
-            : newMessages,
+          messages: outgoingMessages,
           mode,
+          tool,
         }),
       });
       // Image is single-shot — clear after sending so it doesn't get re-sent.
