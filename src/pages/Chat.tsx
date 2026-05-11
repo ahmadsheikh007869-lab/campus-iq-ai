@@ -273,16 +273,10 @@ export default function Chat() {
     !searchQuery.trim() || s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Quick actions for the + tool panel: prefill the input with a directive prompt.
-  const handlePlusAction = (kind: "think" | "research" | "web") => {
+  // Quick actions for the + tool panel: activate a sticky mode badge instead of polluting the input.
+  const handlePlusAction = (kind: Tool) => {
     setPlusOpen(false);
-    const prefix =
-      kind === "think"
-        ? "[Thinking mode — reason step by step before answering] "
-        : kind === "research"
-          ? "[Deep research — be thorough, cite reasoning, give detailed structured answer] "
-          : "[Web-style answer — give the most current general knowledge you have] ";
-    setInput((prev) => prefix + prev);
+    setTool((cur) => (cur === kind ? null : kind));
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
