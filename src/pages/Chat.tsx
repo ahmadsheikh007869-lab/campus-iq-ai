@@ -38,13 +38,16 @@ import {
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
-type Tool = "think" | "research" | "web" | "aiplus" | "pro";
+type Tool = "think" | "research" | "web" | "aiplus" | "pro" | "ultrafast" | "fast" | "medium";
 const TOOL_META: Record<Tool, { label: string; icon: string; directive: string }> = {
-  think:    { label: "Thinking", icon: "🧠", directive: "[THINKING MODE] Reason step-by-step internally before answering. Provide a deep, multi-step, well-structured analysis." },
-  research: { label: "Research", icon: "🔭", directive: "[RESEARCH MODE] Provide a long, deeply-researched, structured answer with sections, key facts, and source-style citations where possible." },
-  web:      { label: "Web",      icon: "🌐", directive: "[WEB SEARCH MODE] Answer using the most current general knowledge you have. Prefer recent facts. Include relevant external links inline as clickable markdown." },
-  aiplus:   { label: "AI Plus",  icon: "✨", directive: "[AI PLUS MODE] Faster, smarter, more creative response. Premium writing tone — engaging, polished, concise but rich." },
-  pro:      { label: "Pro",      icon: "⚡", directive: "[PRO MODE] Use highest intelligence. Handle code, math, and advanced analysis rigorously. Long, expert-grade answer." },
+  think:     { label: "Thinking",   icon: "🧠", directive: "[THINKING MODE] Reason step-by-step internally before answering. Provide a deep, multi-step, well-structured analysis." },
+  research:  { label: "Research",   icon: "🔭", directive: "[RESEARCH MODE] Provide a long, deeply-researched, structured answer with sections, key facts, and source-style citations where possible." },
+  web:       { label: "Web",        icon: "🌐", directive: "[WEB SEARCH MODE] Answer using the most current general knowledge you have. Prefer recent facts. Include relevant external links inline as clickable markdown." },
+  aiplus:    { label: "AI Plus",    icon: "✨", directive: "[AI PLUS MODE] Faster, smarter, more creative response. Premium writing tone — engaging, polished, concise but rich." },
+  pro:       { label: "Pro",        icon: "⚡", directive: "[PRO MODE] Use highest intelligence. Handle code, math, and advanced analysis rigorously. Long, expert-grade answer." },
+  ultrafast: { label: "Ultra Fast", icon: "🚀", directive: "[ULTRA FAST MODE] Reply in 1-3 short lines. No preamble, no headings, no lists. Lowest possible latency. Just the direct answer." },
+  fast:      { label: "Fast",       icon: "💨", directive: "[FAST MODE] Quick everyday reply. Keep it under ~6 short lines. Skip filler. Decent quality, no deep analysis." },
+  medium:    { label: "Medium",     icon: "⚖️", directive: "[MEDIUM MODE] Balanced response — clear, structured, moderately detailed. Use short paragraphs or a small list when helpful." },
 };
 const MAX_PINNED = 10;
 
