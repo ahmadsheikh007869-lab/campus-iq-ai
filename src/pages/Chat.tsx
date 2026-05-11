@@ -1334,6 +1334,24 @@ export default function Chat() {
                   >
                     <span className="text-lg leading-none text-primary">⚡</span> Pro
                   </button>
+                  <button
+                    onClick={() => handlePlusAction("ultrafast")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">🚀</span> Ultra Fast
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("fast")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">💨</span> Fast
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("medium")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">⚖️</span> Medium
+                  </button>
                 </div>
               </PopoverContent>
             </Popover>
@@ -1341,7 +1359,7 @@ export default function Chat() {
               <button
                 onClick={() => setTool(null)}
                 title={`${TOOL_META[tool].label} mode active — click to clear`}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] animate-fade-in hover:bg-primary/15 transition-colors"
+                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/50 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary animate-fade-in hover:bg-primary/15 transition-all mode-badge-glow"
               >
                 <span>{TOOL_META[tool].icon}</span>
                 <span>{TOOL_META[tool].label}</span>
