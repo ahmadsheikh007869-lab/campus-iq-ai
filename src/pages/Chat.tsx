@@ -1319,9 +1319,32 @@ export default function Chat() {
                   >
                     <Globe className="h-5 w-5 text-primary" /> Web
                   </button>
+                  <button
+                    onClick={() => handlePlusAction("aiplus")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Sparkles className="h-5 w-5 text-primary" /> AI Plus
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("pro")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">⚡</span> Pro
+                  </button>
                 </div>
               </PopoverContent>
             </Popover>
+            {tool && (
+              <button
+                onClick={() => setTool(null)}
+                title={`${TOOL_META[tool].label} mode active — click to clear`}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] animate-fade-in hover:bg-primary/15 transition-colors"
+              >
+                <span>{TOOL_META[tool].icon}</span>
+                <span>{TOOL_META[tool].label}</span>
+                <X className="h-3 w-3 opacity-70" />
+              </button>
+            )}
             <Button variant="ghost" size="icon" onClick={toggleVoice} className={listening ? "text-destructive" : ""}>
               {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
