@@ -38,6 +38,14 @@ import {
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
+type Tool = "think" | "research" | "web" | "aiplus" | "pro";
+const TOOL_META: Record<Tool, { label: string; icon: string; directive: string }> = {
+  think:    { label: "Thinking", icon: "🧠", directive: "[THINKING MODE] Reason step-by-step internally before answering. Provide a deep, multi-step, well-structured analysis." },
+  research: { label: "Research", icon: "🔭", directive: "[RESEARCH MODE] Provide a long, deeply-researched, structured answer with sections, key facts, and source-style citations where possible." },
+  web:      { label: "Web",      icon: "🌐", directive: "[WEB SEARCH MODE] Answer using the most current general knowledge you have. Prefer recent facts. Include relevant external links inline as clickable markdown." },
+  aiplus:   { label: "AI Plus",  icon: "✨", directive: "[AI PLUS MODE] Faster, smarter, more creative response. Premium writing tone — engaging, polished, concise but rich." },
+  pro:      { label: "Pro",      icon: "⚡", directive: "[PRO MODE] Use highest intelligence. Handle code, math, and advanced analysis rigorously. Long, expert-grade answer." },
+};
 const MAX_PINNED = 10;
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -74,6 +82,7 @@ export default function Chat() {
   const [scrollPct, setScrollPct] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [plusOpen, setPlusOpen] = useState(false);
+  const [tool, setTool] = useState<Tool | null>(null);
   const [reactions, setReactions] = useState<Record<number, "up" | "down">>({});
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ name: string; dataUrl: string } | null>(null);
