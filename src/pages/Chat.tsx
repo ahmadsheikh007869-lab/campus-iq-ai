@@ -38,6 +38,14 @@ import {
 type Message = { role: "user" | "assistant"; content: string };
 type Session = { id: string; title: string; created_at: string; pinned?: boolean };
 type ChatMode = "simple" | "expert" | "creative";
+type Tool = "think" | "research" | "web" | "aiplus" | "pro";
+const TOOL_META: Record<Tool, { label: string; icon: string; directive: string }> = {
+  think:    { label: "Thinking", icon: "🧠", directive: "[THINKING MODE] Reason step-by-step internally before answering. Provide a deep, multi-step, well-structured analysis." },
+  research: { label: "Research", icon: "🔭", directive: "[RESEARCH MODE] Provide a long, deeply-researched, structured answer with sections, key facts, and source-style citations where possible." },
+  web:      { label: "Web",      icon: "🌐", directive: "[WEB SEARCH MODE] Answer using the most current general knowledge you have. Prefer recent facts. Include relevant external links inline as clickable markdown." },
+  aiplus:   { label: "AI Plus",  icon: "✨", directive: "[AI PLUS MODE] Faster, smarter, more creative response. Premium writing tone — engaging, polished, concise but rich." },
+  pro:      { label: "Pro",      icon: "⚡", directive: "[PRO MODE] Use highest intelligence. Handle code, math, and advanced analysis rigorously. Long, expert-grade answer." },
+};
 const MAX_PINNED = 10;
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -74,6 +82,7 @@ export default function Chat() {
   const [scrollPct, setScrollPct] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [plusOpen, setPlusOpen] = useState(false);
+  const [tool, setTool] = useState<Tool | null>(null);
   const [reactions, setReactions] = useState<Record<number, "up" | "down">>({});
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ name: string; dataUrl: string } | null>(null);
@@ -264,16 +273,10 @@ export default function Chat() {
     !searchQuery.trim() || s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Quick actions for the + tool panel: prefill the input with a directive prompt.
-  const handlePlusAction = (kind: "think" | "research" | "web") => {
+  // Quick actions for the + tool panel: activate a sticky mode badge instead of polluting the input.
+  const handlePlusAction = (kind: Tool) => {
     setPlusOpen(false);
-    const prefix =
-      kind === "think"
-        ? "[Thinking mode — reason step by step before answering] "
-        : kind === "research"
-          ? "[Deep research — be thorough, cite reasoning, give detailed structured answer] "
-          : "[Web-style answer — give the most current general knowledge you have] ";
-    setInput((prev) => prefix + prev);
+    setTool((cur) => (cur === kind ? null : kind));
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
@@ -505,6 +508,22 @@ export default function Chat() {
     }
 
     try {
+      // Build the outgoing message list — silently prepend the active tool directive
+      // to the last user message so the bubble stays clean but the AI gets the mode hint.
+      const directive = tool ? TOOL_META[tool].directive + "\n\n" : "";
+      const outgoingText = directive + text.trim();
+      const outgoingMessages = attachedImage
+        ? [
+            ...newMessages.slice(0, -1),
+            {
+              role: "user",
+              content: [
+                { type: "text", text: outgoingText || `Describe this image: ${attachedImage.name}` },
+                { type: "image_url", image_url: { url: attachedImage.dataUrl } },
+              ],
+            },
+          ]
+        : [...newMessages.slice(0, -1), { role: "user", content: outgoingText }];
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -512,19 +531,9 @@ export default function Chat() {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: attachedImage
-            ? [
-                ...newMessages.slice(0, -1),
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: text.trim() || `Describe this image: ${attachedImage.name}` },
-                    { type: "image_url", image_url: { url: attachedImage.dataUrl } },
-                  ],
-                },
-              ]
-            : newMessages,
+          messages: outgoingMessages,
           mode,
+          tool,
         }),
       });
       // Image is single-shot — clear after sending so it doesn't get re-sent.
@@ -609,7 +618,7 @@ export default function Chat() {
       setMessages([...newMessages, { role: "assistant", content: "Something went wrong. Please try again." }]);
     }
     setLoading(false);
-  }, [activeSession, messages, loading, mode]);
+  }, [activeSession, messages, loading, mode, tool, attachedImage]);
 
   // Regenerate the last assistant reply by re-sending the prior user message.
   const regenerateLast = useCallback(async () => {
@@ -1310,9 +1319,32 @@ export default function Chat() {
                   >
                     <Globe className="h-5 w-5 text-primary" /> Web
                   </button>
+                  <button
+                    onClick={() => handlePlusAction("aiplus")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <Sparkles className="h-5 w-5 text-primary" /> AI Plus
+                  </button>
+                  <button
+                    onClick={() => handlePlusAction("pro")}
+                    className="flex flex-col items-center gap-1 rounded-lg p-2 text-xs hover:bg-secondary transition-colors"
+                  >
+                    <span className="text-lg leading-none text-primary">⚡</span> Pro
+                  </button>
                 </div>
               </PopoverContent>
             </Popover>
+            {tool && (
+              <button
+                onClick={() => setTool(null)}
+                title={`${TOOL_META[tool].label} mode active — click to clear`}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] animate-fade-in hover:bg-primary/15 transition-colors"
+              >
+                <span>{TOOL_META[tool].icon}</span>
+                <span>{TOOL_META[tool].label}</span>
+                <X className="h-3 w-3 opacity-70" />
+              </button>
+            )}
             <Button variant="ghost" size="icon" onClick={toggleVoice} className={listening ? "text-destructive" : ""}>
               {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
