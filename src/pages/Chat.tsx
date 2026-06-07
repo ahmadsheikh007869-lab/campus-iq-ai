@@ -1074,6 +1074,7 @@ export default function Chat() {
                                 {msg.role === "assistant" ? (
                                   <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    <SourceCards content={msg.content} />
                                   </div>
                                 ) : (
                                   msg.content
