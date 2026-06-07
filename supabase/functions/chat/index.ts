@@ -342,7 +342,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, mode } = await req.json();
+    const { messages, mode, tool } = await req.json();
 
     // ---- Input validation / sanitization ----
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -379,6 +379,19 @@ serve(async (req) => {
     const safeMode: "simple" | "expert" | "creative" =
       mode === "simple" || mode === "creative" ? mode : "expert";
     const modeTemp = safeMode === "creative" ? 0.95 : safeMode === "simple" ? 0.5 : 0.7;
+
+    const TOOL_DIRECTIVES: Record<string, string> = {
+      think:     "\n\n🎯 ACTIVE TOOL: THINKING — Reason step-by-step. Deep multi-step structured analysis.",
+      research:  "\n\n🎯 ACTIVE TOOL: RESEARCH — Long-form, structured, academic tone, citations.",
+      web:       "\n\n🎯 ACTIVE TOOL: WEB — Live-internet aware. Prefer current 2026 info. Inline markdown links + Sources block.",
+      aiplus:    "\n\n🎯 ACTIVE TOOL: AI PLUS — Premium polished tone, more human warmth.",
+      pro:       "\n\n🎯 ACTIVE TOOL: PRO — Maximum intelligence. Expert-grade depth.",
+      ultrafast: "\n\n🎯 ACTIVE TOOL: ULTRA FAST — 1–3 short lines, no headings/lists/preamble.",
+      fast:      "\n\n🎯 ACTIVE TOOL: FAST — ≤6 short lines, skip TL;DR.",
+      medium:    "\n\n🎯 ACTIVE TOOL: MEDIUM — Balanced, moderate depth.",
+    };
+    const toolInstruction = typeof tool === "string" && TOOL_DIRECTIVES[tool] ? TOOL_DIRECTIVES[tool] : "";
+    if (toolInstruction) console.log("Active tool:", tool);
     const modeInstruction =
       safeMode === "simple"
         ? "\n\n🎚 MODE: SIMPLE — Use very short, easy language. 1 short answer + 2–3 bullet points. Avoid jargon."
@@ -425,7 +438,7 @@ serve(async (req) => {
         ? SYSTEM_PROMPT +
           "\n\n📄 RETRIEVED DATA (use this to answer the question):\n" +
           documentContext
-        : SYSTEM_PROMPT) + modeInstruction;
+        : SYSTEM_PROMPT) + modeInstruction + toolInstruction;
 
     // Keep last 12 turns for solid context memory while staying within token budget
     const recentMessages = safeMessages.slice(-12);

@@ -1003,9 +1003,9 @@ export default function Chat() {
           const max = t.scrollHeight - t.clientHeight;
           setScrollPct(max > 0 ? Math.min(100, (t.scrollTop / max) * 100) : 0);
         }}>
-          <div ref={scrollRootRef} className="mx-auto max-w-3xl px-4 py-6">
+          <div ref={scrollRootRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6">
             {!activeSession && messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
                   <MessageSquare className="h-8 w-8 text-primary" />
                 </div>
@@ -1072,7 +1072,7 @@ export default function Chat() {
                                 style={{ WebkitTouchCallout: "none" }}
                               >
                                 {msg.role === "assistant" ? (
-                                  <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
+                                  <div className={`prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 ${loading && i === messages.length - 1 ? "stream-caret" : ""}`}>
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                                     <SourceCards content={msg.content} />
                                   </div>
