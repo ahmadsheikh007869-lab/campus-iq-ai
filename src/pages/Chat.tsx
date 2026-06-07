@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
+import SourceCards from "@/components/SourceCards";
 import { motion, AnimatePresence } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -1073,6 +1074,7 @@ export default function Chat() {
                                 {msg.role === "assistant" ? (
                                   <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0">
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    <SourceCards content={msg.content} />
                                   </div>
                                 ) : (
                                   msg.content
