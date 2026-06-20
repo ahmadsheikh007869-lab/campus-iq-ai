@@ -15,6 +15,7 @@ import About from "./pages/About";
 import Chat from "./pages/Chat";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,7 +41,7 @@ const App = () => (
               <Route path="/about" element={<About />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/admin" element={<AdminLogin />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/dashboard" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
