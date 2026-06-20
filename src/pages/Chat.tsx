@@ -163,7 +163,14 @@ export default function Chat() {
   }, [messages]);
 
   useEffect(() => {
-    loadSessions();
+    (async () => {
+      // Ensure the visitor has an auth identity so RLS works (anonymous sign-in).
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        await supabase.auth.signInAnonymously();
+      }
+      await loadSessions();
+    })();
   }, []);
 
   const loadSessions = async () => {
@@ -193,9 +200,11 @@ export default function Chat() {
   };
 
   const createNewChat = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data, error } = await supabase
       .from("chat_sessions")
-      .insert({ title: "New Chat" })
+      .insert({ title: "New Chat", user_id: user.id })
       .select()
       .single();
     if (data && !error) {
@@ -465,9 +474,11 @@ export default function Chat() {
 
     let sessionId = activeSession;
     if (!sessionId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data } = await supabase
         .from("chat_sessions")
-        .insert({ title: text.trim().slice(0, 50) })
+        .insert({ title: text.trim().slice(0, 50), user_id: user.id })
         .select()
         .single();
       if (!data) return;
