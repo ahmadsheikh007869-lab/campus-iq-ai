@@ -395,11 +395,13 @@ export default function Chat() {
 
     // Now get AI response for the edited message
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const token = authSession?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ messages: updatedMessages, mode }),
       });
@@ -539,11 +541,13 @@ export default function Chat() {
             },
           ]
         : [...newMessages.slice(0, -1), { role: "user", content: outgoingText }];
+      const { data: { session: authSession2 } } = await supabase.auth.getSession();
+      const token2 = authSession2?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${token2}`,
         },
         body: JSON.stringify({
           messages: outgoingMessages,
