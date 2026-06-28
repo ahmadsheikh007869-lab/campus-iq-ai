@@ -27,11 +27,9 @@ export default function ProtectedAdminRoute({ children }: { children: ReactNode 
   }, []);
 
   if (state === "checking") {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    // Render nothing during the server validation to avoid exposing any
+    // admin UI before the role check resolves.
+    return null;
   }
   if (state === "denied") return <Navigate to="/admin" replace />;
   return <>{children}</>;
