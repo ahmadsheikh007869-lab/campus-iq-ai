@@ -355,8 +355,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
     );
-    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(jwt);
-    if (claimsErr || !claimsData?.claims?.sub) {
+    // Verify the token against the auth server (validates signature + active session)
+    const { data: userData, error: userErr } = await authClient.auth.getUser(jwt);
+    if (userErr || !userData?.user?.id) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
