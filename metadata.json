@@ -1,0 +1,5 @@
+{
+  "name": "VoiceAI - Browser Generator",
+  "description": "A fast, browser-based AI voice generator using Web Speech API. Works instantly and offline.",
+  "requestFramePermissions": ["microphone"]
+}
