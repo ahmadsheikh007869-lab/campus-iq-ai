@@ -299,9 +299,10 @@ async function tryOpenAI(apiKey: string, messages: any[], temperature = 0.7): Pr
   return null;
 }
 
-async function tryLovableAI(apiKey: string, messages: any[], temperature = 0.7): Promise<Response | null> {
+async function tryFallbackGateway(apiKey: string, messages: any[], temperature = 0.7): Promise<Response | null> {
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const endpoint = Deno.env.get("AI_GATEWAY_URL") || "https://openrouter.ai/api/v1/chat/completions";
+    const resp = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -481,10 +482,10 @@ serve(async (req) => {
     }
 
     if (!streamResponse) {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (LOVABLE_API_KEY) {
+      const GATEWAY_API_KEY = Deno.env.get("AI_GATEWAY_KEY") || Deno.env.get("OPENROUTER_API_KEY");
+      if (GATEWAY_API_KEY) {
         console.log("Falling back to AI gateway...");
-        streamResponse = await tryLovableAI(LOVABLE_API_KEY, aiMessages, modeTemp);
+        streamResponse = await tryFallbackGateway(GATEWAY_API_KEY, aiMessages, modeTemp);
         if (streamResponse) {
           if (streamResponse.headers.get("Content-Type")?.includes("application/json")) {
             return streamResponse;
